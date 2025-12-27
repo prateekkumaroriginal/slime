@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Form Filler",
+  "version": "1.0.0",
+  "description": "Fill form fields with custom rules and dynamic values",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Form Filler"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "src/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content-script.js"]
+    }
+  ]
+}
