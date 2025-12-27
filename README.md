@@ -1,75 +1,114 @@
-# React + TypeScript + Vite
+# Slime
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Chrome extension that fills form/input fields with custom rules and dynamic values. Perfect for testing, development, or repetitive form filling.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Rule-based filling** — Create rules that match specific URLs and fill multiple fields at once
+- **Field matching** — Match input fields by `name` or `id` attribute
+- **Dynamic templates** — Use placeholders for auto-incrementing numbers, random strings, dates, and more
+- **Multiple rules** — Create different fill profiles (e.g., Admin, User, Tester) and switch between them
+- **URL patterns** — Rules can be scoped to specific sites or apply globally
 
-## React Compiler
+## Template Syntax
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+Use these placeholders in your field values for dynamic content:
 
-Note: This will impact Vite dev & build performances.
+| Syntax | Description | Example Output |
+|--------|-------------|----------------|
+| `{{inc}}` | Auto-incrementing number | 1, 2, 3... |
+| `{{inc:100}}` | Increment starting from value | 100, 101, 102... |
+| `{{random:5}}` | Random alphanumeric string of length | xK9pL |
+| `{{pick:a,b,c}}` | Random pick from comma-separated list | b |
+| `{{date:YYYY-MM-DD}}` | Current date/time formatted | 2025-12-27 |
+| `{{regex:[A-Z]{2}\d{3}}}` | Generate string from regex pattern | AB123 |
 
-## Expanding the ESLint configuration
+### Date Format Tokens
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Token | Description | Example |
+|-------|-------------|---------|
+| `YYYY` | 4-digit year | 2025 |
+| `YY` | 2-digit year | 25 |
+| `MM` | Month (zero-padded) | 01-12 |
+| `DD` | Day (zero-padded) | 01-31 |
+| `HH` | Hour 24h (zero-padded) | 00-23 |
+| `mm` | Minutes (zero-padded) | 00-59 |
+| `ss` | Seconds (zero-padded) | 00-59 |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Installation
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Prerequisites
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js (v18+)
+- pnpm (or npm/yarn)
+
+### Build from Source
+
+1. **Clone the repository**
+   ```bash
+   git clone <repo-url>
+   cd filler-ext
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Build the extension**
+   ```bash
+   pnpm build
+   ```
+   This creates a `dist/` folder with the built extension.
+
+### Load in Chrome
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top-right corner)
+3. Click **Load unpacked**
+4. Select the `dist/` folder from this project
+5. The Slime extension should now appear in your toolbar
+
+## Usage
+
+1. **Click the Slime icon** in the toolbar to open the popup
+2. **Click "Manage Rules"** to open the options page
+3. **Create a new rule:**
+   - Give it a name (e.g., "Test User")
+   - Set a URL pattern (`*` for all sites, or `*://example.com/*` for specific sites)
+   - Add field mappings with selectors and values
+4. **Fill forms:** Navigate to a matching page, click the extension, and select your rule
+
+### Example Rule
+
+Create a rule to fill a signup form:
+
+| Match By | Selector | Value |
+|----------|----------|-------|
+| Name | `email` | `user_{{inc}}@test.com` |
+| Name | `username` | `testuser{{random:4}}` |
+| Name | `password` | `Test@123` |
+| ID | `country` | `{{pick:US,UK,CA,AU}}` |
+
+## Development
+
+```bash
+# Start dev server (for UI development)
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Lint code
+pnpm lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+After making changes, run `pnpm build` and reload the extension in Chrome (`chrome://extensions/` → click the refresh icon on Slime).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Tech Stack
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- Chrome Extension Manifest V3
