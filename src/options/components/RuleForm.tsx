@@ -129,16 +129,16 @@ const matchTypeOptions = [
 
 function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
   return (
-    <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+    <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700">
       {/* Top bar with number and delete */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
-        <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium  rounded-br-lg">
+        <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
           {index + 1}
         </span>
         <button
           type="button"
           onClick={onRemove}
-          className="px-3 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-bl-lg transition-colors"
+          className="px-3 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md rounded-bl-md transition-colors"
           title="Delete Field"
         >
           <Trash2 className="w-4 h-4" />
