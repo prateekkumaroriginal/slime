@@ -46,8 +46,8 @@ Use these placeholders in your field values for dynamic content:
 
 1. **Clone the repository**
    ```bash
-   git clone <repo-url>
-   cd filler-ext
+   git clone https://github.com/prateekkumaroriginal/slime.git
+   cd slime
    ```
 
 2. **Install dependencies**
