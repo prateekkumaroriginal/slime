@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
+import { Button, Input, Select, Checkbox, Card } from '@/components';
 
 interface RuleFormProps {
   rule: FillRule;
@@ -52,74 +53,46 @@ export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProp
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
-          >
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors"
-          >
-            Save Rule
-          </button>
+          </Button>
+          <Button type="submit">Save Rule</Button>
         </div>
       </div>
 
-      <div className="p-6 bg-zinc-900 rounded-xl border border-zinc-800 space-y-5">
+      <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">Rule Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => updateField('name', e.target.value)}
-              placeholder="e.g., User, Admin, Creator"
-              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">URL Pattern</label>
-            <input
-              type="text"
-              value={formData.urlPattern}
-              onChange={(e) => updateField('urlPattern', e.target.value)}
-              placeholder="*://example.com/* or *"
-              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm"
-            />
-            <p className="mt-1 text-xs text-zinc-500">Use * for all sites</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="enabled"
-            checked={formData.enabled}
-            onChange={(e) => updateField('enabled', e.target.checked)}
-            className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-900"
+          <Input
+            label="Rule Name"
+            value={formData.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            placeholder="e.g., User, Admin, Creator"
+            required
           />
-          <label htmlFor="enabled" className="text-sm text-zinc-300">
-            Enable this rule
-          </label>
+          <Input
+            label="URL Pattern"
+            value={formData.urlPattern}
+            onChange={(e) => updateField('urlPattern', e.target.value)}
+            placeholder="*://example.com/* or *"
+            hint="Use * for all sites"
+            mono
+          />
         </div>
-      </div>
 
-      <div className="p-6 bg-zinc-900 rounded-xl border border-zinc-800">
-        <div className="flex items-center justify-between mb-4">
+        <Checkbox
+          label="Enable this rule"
+          checked={formData.enabled}
+          onChange={(e) => updateField('enabled', e.target.checked)}
+        />
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-zinc-200">Field Mappings</h3>
-          <button
-            type="button"
-            onClick={addFieldMapping}
-            className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors flex items-center gap-1"
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={addFieldMapping}>
             <Plus className="w-4 h-4" />
             Add Field
-          </button>
+          </Button>
         </div>
 
         {formData.fields.length === 0 ? (
@@ -137,7 +110,7 @@ export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProp
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </form>
   );
 }
@@ -149,59 +122,59 @@ interface FieldMappingRowProps {
   onRemove: () => void;
 }
 
+const matchTypeOptions = [
+  { value: 'name', label: 'Name' },
+  { value: 'id', label: 'ID' },
+];
+
 function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
   return (
-    <div className="p-4 bg-zinc-800 rounded-lg border border-zinc-700">
-      <div className="flex items-start gap-4">
-        <span className="w-6 h-6 flex items-center justify-center bg-zinc-700 text-zinc-400 text-xs font-medium rounded-full shrink-0">
+    <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
+      {/* Top bar with number and delete */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
+        <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium  rounded-br-lg">
           {index + 1}
         </span>
-
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Match By</label>
-            <select
-              value={field.matchType}
-              onChange={(e) => onUpdate({ matchType: e.target.value as MatchType })}
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="name">Name</option>
-              <option value="id">ID</option>
-              <option value="css">CSS Selector</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Selector</label>
-            <input
-              type="text"
-              value={field.selector}
-              onChange={(e) => onUpdate({ selector: e.target.value })}
-              placeholder={field.matchType === 'css' ? 'input.email' : 'email'}
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-zinc-400 mb-1">Value (static or template)</label>
-            <input
-              type="text"
-              value={field.value}
-              onChange={(e) => onUpdate({ value: e.target.value })}
-              placeholder="john@example.com or user_{{inc}}@test.com"
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        </div>
-
         <button
           type="button"
           onClick={onRemove}
-          className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
-          title="Remove Field"
+          className="px-3 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-bl-lg transition-colors"
+          title="Delete Field"
         >
-          <X className="w-4 h-4" />
+          <Trash2 className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Form fields */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Select
+          label="Match By"
+          value={field.matchType}
+          onChange={(value) => onUpdate({ matchType: value as MatchType })}
+          options={matchTypeOptions}
+        />
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Selector</label>
+          <input
+            type="text"
+            value={field.selector}
+            onChange={(e) => onUpdate({ selector: e.target.value })}
+            placeholder="email"
+            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Value (static or template)</label>
+          <input
+            type="text"
+            value={field.value}
+            onChange={(e) => onUpdate({ value: e.target.value })}
+            placeholder="john@example.com or user_{{inc}}@test.com"
+            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
       </div>
     </div>
   );

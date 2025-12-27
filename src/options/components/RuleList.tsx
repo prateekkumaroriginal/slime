@@ -1,5 +1,6 @@
 import { RotateCcw, SquarePen, Trash2 } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
+import { Button } from '@/components';
 
 interface RuleListProps {
   rules: FillRule[];
@@ -35,28 +36,16 @@ export default function RuleList({ rules, onEdit, onDelete, onResetIncrement }: 
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => onResetIncrement(rule.id)}
-                className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
-                title="Reset Counter"
-              >
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="ghost" size="icon" onClick={() => onResetIncrement(rule.id)} title="Reset Counter">
                 <RotateCcw className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onEdit(rule)}
-                className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
-                title="Edit Rule"
-              >
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => onEdit(rule)} title="Edit Rule">
                 <SquarePen className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onDelete(rule.id)}
-                className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
-                title="Delete Rule"
-              >
+              </Button>
+              <Button variant="danger" size="icon" onClick={() => onDelete(rule.id)} title="Delete Rule">
                 <Trash2 className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           </div>
         </div>

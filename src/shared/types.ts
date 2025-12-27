@@ -1,5 +1,5 @@
 // Match type for field selectors
-export type MatchType = 'css' | 'name' | 'id';
+export type MatchType = 'name' | 'id';
 
 // Value types for dynamic generation
 export type ValueType = 'static' | 'template';

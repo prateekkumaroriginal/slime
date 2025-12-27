@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
 import { getRulesForUrl } from '@/storage/rules';
+import { Button } from '@/components';
 
 export default function Popup() {
   const [rules, setRules] = useState<FillRule[]>([]);
@@ -63,13 +64,9 @@ export default function Popup() {
     <div className="w-72 bg-zinc-900 text-zinc-100 p-4 font-sans">
       <header className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold tracking-tight text-emerald-400">Form Filler</h1>
-        <button
-          onClick={openOptions}
-          className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
-          title="Manage Rules"
-        >
+        <Button variant="ghost" size="icon" onClick={openOptions} title="Manage Rules">
           <Settings className="w-5 h-5" />
-        </button>
+        </Button>
       </header>
 
       {loading ? (

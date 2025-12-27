@@ -7,8 +7,6 @@ function findElement(mapping: FieldMapping): HTMLInputElement | HTMLTextAreaElem
 
   try {
     switch (matchType) {
-      case 'css':
-        return document.querySelector(selector);
       case 'name':
         return document.querySelector(`[name="${selector}"]`);
       case 'id':
