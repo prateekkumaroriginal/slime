@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
 
@@ -116,9 +117,7 @@ export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProp
             onClick={addFieldMapping}
             className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors flex items-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus className="w-4 h-4" />
             Add Field
           </button>
         </div>
@@ -201,12 +200,9 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
           className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
           title="Remove Field"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-4 h-4" />
         </button>
       </div>
     </div>
   );
 }
-
