@@ -64,7 +64,7 @@ export default function Options() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="max-w-4xl mx-auto px-6 py-10">
         <header className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-emerald-400 mb-2">Form Filler</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-emerald-400 mb-2">Slime</h1>
           <p className="text-zinc-400">Manage your form filling rules and field mappings</p>
         </header>
 

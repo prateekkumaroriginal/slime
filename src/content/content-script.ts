@@ -38,7 +38,7 @@ function setElementValue(
       }
     } else if (element instanceof HTMLInputElement) {
       const type = element.type.toLowerCase();
-      
+
       if (type === 'checkbox') {
         element.checked = value === 'true' || value === '1' || value === 'yes';
       } else if (type === 'radio') {
@@ -114,5 +114,5 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage & { rule?: FillR
 });
 
 // Log that content script is loaded (for debugging)
-console.log('[Form Filler] Content script loaded');
+console.log('[Slime] Content script loaded');
 

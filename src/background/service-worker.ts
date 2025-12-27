@@ -62,10 +62,10 @@ async function handleUpdateIncrement(ruleId: string, newValue: number) {
   try {
     await updateIncrement(ruleId, newValue);
   } catch (error) {
-    console.error('[Form Filler] Failed to update increment:', error);
+    console.error('[Slime] Failed to update increment:', error);
   }
 }
 
 // Log that service worker is loaded
-console.log('[Form Filler] Service worker loaded');
+console.log('[Slime] Service worker loaded');
 

@@ -63,7 +63,7 @@ export default function Popup() {
   return (
     <div className="w-72 bg-zinc-900 text-zinc-100 p-4 font-sans">
       <header className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold tracking-tight text-emerald-400">Form Filler</h1>
+        <h1 className="text-lg font-semibold tracking-tight text-emerald-400">Slime</h1>
         <Button variant="ghost" size="icon" onClick={openOptions} title="Manage Rules">
           <Settings className="w-5 h-5" />
         </Button>
