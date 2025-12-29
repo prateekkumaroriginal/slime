@@ -1,8 +1,10 @@
 import RandExp from 'randexp';
 import type { ParsedPlaceholder, PlaceholderType } from '@/shared/types';
 
-// Regex to match placeholders like {{inc}}, {{random:5}}, {{pick:a,b,c}}, etc.
-const PLACEHOLDER_REGEX = /\{\{(\w+)(?::([^}]+))?\}\}/g;
+// Combined regex for placeholders:
+// 1. {{regex:[pattern]}} - regex type uses [] to wrap pattern (allows } inside)
+// 2. {{type:params}} or {{type}} - other placeholder types
+const PLACEHOLDER_REGEX = /\{\{regex:\[(.+?)\]\}\}|\{\{(\w+)(?::([^}]+))?\}\}/gi;
 
 // Parse a template string and extract all placeholders
 function parsePlaceholders(template: string): ParsedPlaceholder[] {
@@ -10,12 +12,22 @@ function parsePlaceholders(template: string): ParsedPlaceholder[] {
   let match;
 
   while ((match = PLACEHOLDER_REGEX.exec(template)) !== null) {
-    const type = match[1].toLowerCase() as PlaceholderType;
-    placeholders.push({
-      type,
-      raw: match[0],
-      params: match[2],
-    });
+    if (match[1] !== undefined) {
+      // Matched {{regex:[pattern]}} - group 1 has the pattern
+      placeholders.push({
+        type: 'regex',
+        raw: match[0],
+        params: match[1],
+      });
+    } else {
+      // Matched {{type:params}} or {{type}} - groups 2 and 3
+      const type = match[2].toLowerCase() as PlaceholderType;
+      placeholders.push({
+        type,
+        raw: match[0],
+        params: match[3],
+      });
+    }
   }
   // Reset regex lastIndex for next use
   PLACEHOLDER_REGEX.lastIndex = 0;
@@ -42,7 +54,7 @@ function pickRandom(options: string): string {
 // Format a date with the given pattern
 function formatDate(pattern: string): string {
   const now = new Date();
-  
+
   const tokens: Record<string, string> = {
     'YYYY': now.getFullYear().toString(),
     'YY': now.getFullYear().toString().slice(-2),
@@ -61,7 +73,7 @@ function formatDate(pattern: string): string {
   let result = pattern;
   // Sort by length descending to replace longer tokens first
   const sortedTokens = Object.keys(tokens).sort((a, b) => b.length - a.length);
-  
+
   for (const token of sortedTokens) {
     result = result.replace(new RegExp(token, 'g'), tokens[token]);
   }
@@ -136,7 +148,7 @@ export function generateValue(
   for (const placeholder of placeholders) {
     const resolved = resolvePlaceholder(placeholder, currentIncrement);
     result = result.replace(placeholder.raw, resolved.value);
-    
+
     if (resolved.newIncrement !== undefined) {
       currentIncrement = resolved.newIncrement;
     }
@@ -150,16 +162,3 @@ export function hasPlaceholders(value: string): boolean {
   PLACEHOLDER_REGEX.lastIndex = 0;
   return PLACEHOLDER_REGEX.test(value);
 }
-
-// Get placeholder type description for UI
-export function getPlaceholderHelp(): Array<{ syntax: string; description: string; example: string }> {
-  return [
-    { syntax: '{{inc}}', description: 'Auto-incrementing number', example: '1, 2, 3...' },
-    { syntax: '{{inc:100}}', description: 'Increment starting from value', example: '100, 101, 102...' },
-    { syntax: '{{random:5}}', description: 'Random string of length', example: 'xK9pL' },
-    { syntax: '{{pick:a,b,c}}', description: 'Random pick from list', example: 'b' },
-    { syntax: '{{date:YYYY-MM-DD}}', description: 'Current date/time', example: '2025-12-27' },
-    { syntax: '{{regex:[A-Z]{2}\\d{3}}}', description: 'Generate from regex', example: 'AB123' },
-  ];
-}
-

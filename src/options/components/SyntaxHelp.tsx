@@ -62,7 +62,7 @@ export default function SyntaxHelp({ isOpen, onToggle }: SyntaxHelpProps) {
             <SyntaxItem syntax="{{random:5}}" description="Random string" example="xK9pL" />
             <SyntaxItem syntax="{{pick:a,b,c}}" description="Random pick" example="b" />
             <SyntaxItem syntax="{{date:YYYY-MM-DD}}" description="Current date" example="2025-12-27" />
-            <SyntaxItem syntax={'{{regex:[A-Z]{2}\\d{3}}}'} description="From regex" example="AB123" />
+            <SyntaxItem syntax={'{{regex:[[A-Z]{2}\\d{3}]}}'} description="From regex" example="AB123" />
           </div>
 
           <div className="mt-6 pt-6 border-t border-zinc-800">
