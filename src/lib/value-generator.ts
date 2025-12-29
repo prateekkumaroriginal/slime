@@ -17,7 +17,6 @@ function parsePlaceholders(template: string): ParsedPlaceholder[] {
       params: match[2],
     });
   }
-
   // Reset regex lastIndex for next use
   PLACEHOLDER_REGEX.lastIndex = 0;
 
@@ -90,8 +89,7 @@ function resolvePlaceholder(
 
   switch (type) {
     case 'inc': {
-      const start = params ? parseInt(params, 10) : incrementValue;
-      const value = isNaN(start) ? incrementValue : start;
+      const value = params ? parseInt(params, 10) + incrementValue : incrementValue;
       return { value: value.toString(), newIncrement: incrementValue + 1 };
     }
 
