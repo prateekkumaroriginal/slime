@@ -83,7 +83,7 @@ export function matchesUrl(pattern: string, url: string): boolean {
     const regexPattern = pattern
       .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
       .replace(/\\\*/g, '.*'); // Convert * to .*
-    
+
     const regex = new RegExp(`^${regexPattern}$`, 'i');
     return regex.test(url);
   } catch {
@@ -115,5 +115,31 @@ export function createEmptyRule(): FillRule {
     createdAt: now,
     updatedAt: now,
   };
+}
+
+// Export all rules as JSON string
+export async function exportRulesToJson(): Promise<string> {
+  const rules = await getRules();
+  return JSON.stringify({ rules, exportedAt: Date.now(), version: 1 }, null, 2);
+}
+
+// Import rules from JSON, adding them to existing rules
+export async function importRulesFromJson(jsonString: string): Promise<number> {
+  const data = JSON.parse(jsonString);
+  const importedRules: FillRule[] = data.rules;
+
+  // Validate and generate new IDs to avoid conflicts
+  const existingRules = await getRules();
+  const now = Date.now();
+
+  const newRules = importedRules.map(rule => ({
+    ...rule,
+    id: generateId(),
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  await saveRules([...existingRules, ...newRules]);
+  return newRules.length;
 }
 

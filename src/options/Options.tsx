@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Plus, FileText } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus, FileText, Download, Upload } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
-import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement } from '@/storage/rules';
+import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -12,6 +12,7 @@ export default function Options() {
   const [editingRule, setEditingRule] = useState<FillRule | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadRules();
@@ -60,6 +61,46 @@ export default function Options() {
     await loadRules();
   }
 
+  async function handleExport() {
+    try {
+      const jsonString = await exportRulesToJson();
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const date = new Date().toISOString().split('T')[0];
+      a.download = `slime-rules-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(`Failed to export rules: ${error}`);
+    }
+  }
+
+  function handleImportClick() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importedCount = await importRulesFromJson(text);
+      await loadRules();
+      alert(`Successfully imported ${importedCount} rule(s)`);
+    } catch (error) {
+      alert(`Failed to import rules: ${error}`);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="max-w-4xl mx-auto px-6 py-10">
@@ -74,10 +115,27 @@ export default function Options() {
           <>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
-              <Button onClick={handleCreate}>
-                <Plus className="w-5 h-5" />
-                New Rule
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" onClick={handleExport}>
+                  <Upload className="w-4 h-4" />
+                  Export
+                </Button>
+                <Button variant="secondary" onClick={handleImportClick}>
+                  <Download className="w-4 h-4" />
+                  Import
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  style={{ display: 'none' }}
+                  onChange={handleImportFile}
+                />
+                <Button onClick={handleCreate}>
+                  <Plus className="w-5 h-5" />
+                  New Rule
+                </Button>
+              </div>
             </div>
 
             {rules.length === 0 ? (
