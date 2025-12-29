@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, FileText, Download, Upload } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
-import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError } from '@/storage/rules';
+import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -58,6 +58,26 @@ export default function Options() {
 
   async function handleResetIncrement(id: string) {
     await resetIncrement(id);
+    await loadRules();
+  }
+
+  async function handleToggle(id: string) {
+    await toggleRule(id);
+    await loadRules();
+  }
+
+  async function handleDuplicate(rule: FillRule) {
+    const now = Date.now();
+    const duplicatedRule: FillRule = {
+      ...rule,
+      id: generateId(),
+      name: `${rule.name} (Copy)`,
+      fields: rule.fields.map((f) => ({ ...f, id: generateId() })),
+      incrementCounter: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await addRule(duplicatedRule);
     await loadRules();
   }
 
@@ -157,6 +177,8 @@ export default function Options() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onResetIncrement={handleResetIncrement}
+                onDuplicate={handleDuplicate}
+                onToggle={handleToggle}
               />
             )}
           </>
