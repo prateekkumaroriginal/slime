@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, FileText, Download, Upload } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
-import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson } from '@/storage/rules';
+import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -89,11 +89,15 @@ export default function Options() {
 
     try {
       const text = await file.text();
-      const importedCount = await importRulesFromJson(text);
+      const count = await importRulesFromJson(text);
       await loadRules();
-      alert(`Successfully imported ${importedCount} rule(s)`);
+      alert(`Successfully imported ${count} rule(s)`);
     } catch (error) {
-      alert(`Failed to import rules: ${error}`);
+      if (error instanceof ImportValidationError) {
+        alert(`Import failed:\n${error.message}`);
+      } else {
+        alert(`Failed to import rules: ${error}`);
+      }
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
