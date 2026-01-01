@@ -1,17 +1,20 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, FileText, Download, Upload } from 'lucide-react';
+import { Plus, FileText, Download, Upload, Menu } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
-import { getRules, addRule, updateRule, deleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
+import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
 import SyntaxHelp from './components/SyntaxHelp';
+import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
 
 export default function Options() {
   const [rules, setRules] = useState<FillRule[]>([]);
+  const [archivedRules, setArchivedRules] = useState<FillRule[]>([]);
   const [editingRule, setEditingRule] = useState<FillRule | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
+  const [isArchivedSidebarOpen, setIsArchivedSidebarOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -19,8 +22,10 @@ export default function Options() {
   }, []);
 
   async function loadRules() {
-    const loadedRules = await getRules();
-    setRules(loadedRules);
+    const activeRules = await getActiveRules();
+    const archived = await getArchivedRules();
+    setRules(activeRules);
+    setArchivedRules(archived);
   }
 
   function handleCreate() {
@@ -31,6 +36,9 @@ export default function Options() {
   function handleEdit(rule: FillRule) {
     setEditingRule({ ...rule });
     setIsCreating(false);
+    if (isArchivedSidebarOpen) {
+      setIsArchivedSidebarOpen(false);
+    }
   }
 
   async function handleSave(rule: FillRule) {
@@ -49,10 +57,34 @@ export default function Options() {
     setIsCreating(false);
   }
 
-  async function handleDelete(id: string) {
-    if (confirm('Are you sure you want to delete this rule?')) {
-      await deleteRule(id);
+  async function handleArchive(id: string) {
+    await archiveRule(id);
+    await loadRules();
+  }
+
+  async function handleRestore(id: string) {
+    await restoreRule(id);
+    await loadRules();
+  }
+
+  async function handlePermanentDelete(id: string) {
+    if (confirm('Are you sure you want to permanently delete this rule? This action cannot be undone.')) {
+      await permanentlyDeleteRule(id);
       await loadRules();
+    }
+  }
+
+  function handleToggleArchivedSidebar() {
+    setIsArchivedSidebarOpen(!isArchivedSidebarOpen);
+    if (!isArchivedSidebarOpen) {
+      setShowSyntaxHelp(false);
+    }
+  }
+
+  function handleToggleSyntaxHelp() {
+    setShowSyntaxHelp(!showSyntaxHelp);
+    if (!showSyntaxHelp) {
+      setIsArchivedSidebarOpen(false);
     }
   }
 
@@ -129,17 +161,40 @@ export default function Options() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="max-w-4xl mx-auto px-6 py-10">
         <header className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-emerald-400 mb-2">Slime</h1>
-          <p className="text-zinc-400">Manage your form filling rules and field mappings</p>
+          <div className="flex items-start justify-between">
+            <h1 className="text-3xl font-bold tracking-tight text-emerald-400">Slime</h1>
+            {!isArchivedSidebarOpen && (
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleToggleArchivedSidebar}
+                title="Show Archived Rules"
+                className="rounded px-3"
+              >
+                <Menu className="w-5 h-5 text-zinc-300" />
+              </Button>
+            )}
+          </div>
+          <p className="text-zinc-400 mt-2">Manage your form filling rules and field mappings</p>
         </header>
 
         {editingRule ? (
-          <RuleForm rule={editingRule} onSave={handleSave} onCancel={handleCancel} isNew={isCreating} isHelpOpen={showSyntaxHelp} onCloseHelp={() => setShowSyntaxHelp(false)} />
+          <RuleForm
+            rule={editingRule}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            isNew={isCreating}
+            isHelpOpen={showSyntaxHelp}
+            isArchivedSidebarOpen={isArchivedSidebarOpen}
+            onArchive={handleArchive}
+            onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDelete}
+          />
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="secondary" onClick={handleExport}>
                   <Upload className="w-4 h-4" />
                   Export
@@ -175,7 +230,7 @@ export default function Options() {
               <RuleList
                 rules={rules}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onArchive={handleArchive}
                 onResetIncrement={handleResetIncrement}
                 onDuplicate={handleDuplicate}
                 onToggle={handleToggle}
@@ -185,7 +240,15 @@ export default function Options() {
         )}
       </div>
 
-      <SyntaxHelp isOpen={showSyntaxHelp} onToggle={() => setShowSyntaxHelp(!showSyntaxHelp)} />
+      <SyntaxHelp isOpen={showSyntaxHelp && !isArchivedSidebarOpen} onToggle={handleToggleSyntaxHelp} canOpen={!isArchivedSidebarOpen} />
+      <ArchivedRulesSidebar
+        isOpen={isArchivedSidebarOpen}
+        onToggle={handleToggleArchivedSidebar}
+        archivedRules={archivedRules}
+        onRestore={handleRestore}
+        onEdit={handleEdit}
+        onPermanentDelete={handlePermanentDelete}
+      />
     </div>
   );
 }

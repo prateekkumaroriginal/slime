@@ -21,6 +21,7 @@ export interface FillRule {
   fields: FieldMapping[];
   enabled: boolean;
   incrementCounter: number; // Current increment value for {{inc}}
+  isArchived?: boolean; // Whether the rule is archived
   createdAt: number;
   updatedAt: number;
 }

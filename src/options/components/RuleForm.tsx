@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Archive, RotateCcw } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
 import { Button, Input, Select, Checkbox, Card } from '@/components';
@@ -10,25 +10,25 @@ interface RuleFormProps {
   onCancel: () => void;
   isNew: boolean;
   isHelpOpen?: boolean;
-  onCloseHelp?: () => void;
+  isArchivedSidebarOpen?: boolean;
+  onArchive: (id: string) => void;
+  onRestore: (id: string) => void;
+  onPermanentDelete: (id: string) => void;
 }
 
-export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, onCloseHelp }: RuleFormProps) {
+export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, isArchivedSidebarOpen, onArchive, onRestore, onPermanentDelete }: RuleFormProps) {
   const [formData, setFormData] = useState<FillRule>(rule);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Ctrl+Enter to submit, Escape to close help (if open) or cancel
+  // Ctrl+Enter to submit, Escape to cancel
+  // Skip Escape handling if any sidebar is open (sidebars have priority)
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       formRef.current?.requestSubmit();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === 'Escape' && !isArchivedSidebarOpen && !isHelpOpen) {
       e.preventDefault();
-      if (isHelpOpen && onCloseHelp) {
-        onCloseHelp();
-      } else {
-        onCancel();
-      }
+      onCancel();
     }
   });
 
@@ -71,6 +71,27 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, on
     onSave(formData);
   }
 
+  function handleArchive() {
+    if (formData.id) {
+      setFormData((prev) => ({ ...prev, isArchived: true }));
+      onArchive(formData.id);
+    }
+  }
+
+  function handleRestore() {
+    if (formData.id) {
+      setFormData((prev) => ({ ...prev, isArchived: false }));
+      onRestore(formData.id);
+    }
+  }
+
+  function handlePermanentDelete() {
+    if (formData.id) {
+      onPermanentDelete(formData.id);
+      onCancel();
+    }
+  }
+
   // Prevent Enter from submitting (only Ctrl+Enter should submit)
   function handleFormKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.ctrlKey) {
@@ -83,6 +104,24 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, on
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
         <div className="flex items-center gap-2">
+          {!isNew && formData.isArchived && (
+            <Button type="button" variant="ghost" onClick={handleRestore}>
+              <RotateCcw className="w-4 h-4" />
+              Restore
+            </Button>
+          )}
+          {!isNew && formData.isArchived && (
+            <Button type="button" variant="danger" onClick={handlePermanentDelete}>
+              <Trash2 className="w-4 h-4" />
+              Delete Permanently
+            </Button>
+          )}
+          {!isNew && !formData.isArchived && (
+            <Button type="button" variant="ghost" onClick={handleArchive}>
+              <Archive className="w-4 h-4" />
+              Archive
+            </Button>
+          )}
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
