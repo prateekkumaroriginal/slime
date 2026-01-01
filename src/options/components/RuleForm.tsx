@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
@@ -13,6 +13,19 @@ interface RuleFormProps {
 
 export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProps) {
   const [formData, setFormData] = useState<FillRule>(rule);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Ctrl+Enter to submit
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   function updateField(key: keyof FillRule, value: unknown) {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -48,8 +61,15 @@ export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProp
     onSave(formData);
   }
 
+  // Prevent Enter from submitting (only Ctrl+Enter should submit)
+  function handleFormKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.ctrlKey) {
+      e.preventDefault();
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
         <div className="flex items-center gap-2">
