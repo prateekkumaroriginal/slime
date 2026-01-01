@@ -134,7 +134,7 @@ export default function Options() {
         </header>
 
         {editingRule ? (
-          <RuleForm rule={editingRule} onSave={handleSave} onCancel={handleCancel} isNew={isCreating} />
+          <RuleForm rule={editingRule} onSave={handleSave} onCancel={handleCancel} isNew={isCreating} isHelpOpen={showSyntaxHelp} onCloseHelp={() => setShowSyntaxHelp(false)} />
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">

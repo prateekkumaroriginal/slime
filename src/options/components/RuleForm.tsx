@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useEffectEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
@@ -9,22 +9,32 @@ interface RuleFormProps {
   onSave: (rule: FillRule) => void;
   onCancel: () => void;
   isNew: boolean;
+  isHelpOpen?: boolean;
+  onCloseHelp?: () => void;
 }
 
-export default function RuleForm({ rule, onSave, onCancel, isNew }: RuleFormProps) {
+export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, onCloseHelp }: RuleFormProps) {
   const [formData, setFormData] = useState<FillRule>(rule);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Ctrl+Enter to submit
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault();
-        formRef.current?.requestSubmit();
+  // Ctrl+Enter to submit, Escape to close help (if open) or cancel
+  const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (isHelpOpen && onCloseHelp) {
+        onCloseHelp();
+      } else {
+        onCancel();
       }
     }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+  });
+
+  useEffect(() => {
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
   function updateField(key: keyof FillRule, value: unknown) {
