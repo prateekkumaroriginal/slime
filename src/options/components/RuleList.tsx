@@ -25,7 +25,7 @@ export default function RuleList({ rules, onEdit, onDelete, onResetIncrement, on
             onChange={() => onToggle(rule.id)}
             label={rule.enabled ? 'Active' : 'Disabled'}
             title={rule.enabled ? 'Disable rule' : 'Enable rule'}
-            className={`absolute top-0 left-0 w-[88px] px-2 py-1 rounded-none rounded-tl-md rounded-br-xl transition-colors duration-200 ${rule.enabled ? 'bg-emerald-500/20' : 'bg-zinc-700'}`}
+            className={`absolute top-0 left-0 w-[88px] px-2 py-1 rounded-none rounded-tl-md rounded-br-xl transition-colors duration-200 ${rule.enabled ? 'bg-emerald-500/20 hover:bg-emerald-500/20' : 'bg-zinc-700 hover:bg-zinc-700'}`}
           />
 
           {/* Top-right action buttons */}
