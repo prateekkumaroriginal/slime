@@ -68,13 +68,6 @@ export async function updateRule(updatedRule: FillRule): Promise<void> {
   }
 }
 
-// Delete a rule by ID
-export async function deleteRule(id: string): Promise<void> {
-  const rules = await getRules();
-  const filtered = rules.filter((r) => r.id !== id);
-  await saveRules(filtered);
-}
-
 // Toggle rule enabled state
 export async function toggleRule(id: string): Promise<void> {
   const rules = await getRules();
