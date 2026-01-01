@@ -5,13 +5,14 @@ import { Button } from '@/components';
 interface SyntaxHelpProps {
   isOpen: boolean;
   onToggle: () => void;
+  canOpen?: boolean; // Whether the sidebar can be opened (e.g., if another sidebar is open)
 }
 
-export default function SyntaxHelp({ isOpen, onToggle }: SyntaxHelpProps) {
+export default function SyntaxHelp({ isOpen, onToggle, canOpen = true }: SyntaxHelpProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Ctrl+I to toggle help
-      if (e.ctrlKey && e.key === 'i') {
+      // Ctrl+I to toggle help (only if can open)
+      if (e.ctrlKey && e.key === 'i' && canOpen) {
         e.preventDefault();
         onToggle();
         return;
@@ -24,16 +25,16 @@ export default function SyntaxHelp({ isOpen, onToggle }: SyntaxHelpProps) {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onToggle]);
+  }, [isOpen, onToggle, canOpen]);
 
   return (
     <>
       {/* Toggle Button */}
-      {!isOpen && (
+      {!isOpen && canOpen && (
         <Button
           variant="secondary"
           onClick={onToggle}
-          className="fixed bottom-6 right-6 z-40"
+          className="fixed bottom-6 right-6 z-40 border-zinc-600 border"
           title="Show Syntax Help (Ctrl+I)"
         >
           <HelpCircle className="w-5 h-5 text-emerald-400" />

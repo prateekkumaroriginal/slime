@@ -124,7 +124,48 @@ export function matchesUrl(pattern: string, url: string): boolean {
 // Get rules that match a specific URL
 export async function getRulesForUrl(url: string): Promise<FillRule[]> {
   const rules = await getRules();
-  return rules.filter((rule) => rule.enabled && matchesUrl(rule.urlPattern, url));
+  return rules.filter((rule) => rule.enabled && !rule.isArchived && matchesUrl(rule.urlPattern, url));
+}
+
+// Get active (non-archived) rules
+export async function getActiveRules(): Promise<FillRule[]> {
+  const rules = await getRules();
+  return rules.filter((rule) => !rule.isArchived);
+}
+
+// Get archived rules
+export async function getArchivedRules(): Promise<FillRule[]> {
+  const rules = await getRules();
+  return rules.filter((rule) => rule.isArchived === true);
+}
+
+// Archive a rule by ID
+export async function archiveRule(id: string): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === id);
+  if (rule) {
+    rule.isArchived = true;
+    rule.updatedAt = Date.now();
+    await saveRules(rules);
+  }
+}
+
+// Restore an archived rule by ID
+export async function restoreRule(id: string): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === id);
+  if (rule) {
+    rule.isArchived = false;
+    rule.updatedAt = Date.now();
+    await saveRules(rules);
+  }
+}
+
+// Permanently delete a rule by ID (actually removes from storage)
+export async function permanentlyDeleteRule(id: string): Promise<void> {
+  const rules = await getRules();
+  const filtered = rules.filter((r) => r.id !== id);
+  await saveRules(filtered);
 }
 
 // Generate a unique ID

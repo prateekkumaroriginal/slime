@@ -1,17 +1,17 @@
-import { Copy, RotateCcw, SquarePen, Trash2 } from 'lucide-react';
+import { Copy, RotateCcw, SquarePen, Archive } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
 import { Button, Switch } from '@/components';
 
 interface RuleListProps {
   rules: FillRule[];
   onEdit: (rule: FillRule) => void;
-  onDelete: (id: string) => void;
+  onArchive: (id: string) => void;
   onResetIncrement: (id: string) => void;
   onDuplicate: (rule: FillRule) => void;
   onToggle: (id: string) => void;
 }
 
-export default function RuleList({ rules, onEdit, onDelete, onResetIncrement, onDuplicate, onToggle }: RuleListProps) {
+export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, onDuplicate, onToggle }: RuleListProps) {
   return (
     <div className="space-y-3">
       {rules.map((rule) => (
@@ -39,8 +39,8 @@ export default function RuleList({ rules, onEdit, onDelete, onResetIncrement, on
             <Button variant="ghost" size="icon-sm" onClick={() => onEdit(rule)} title="Edit Rule">
               <SquarePen className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="danger" size="icon-sm" onClick={() => onDelete(rule.id)} title="Delete Rule">
-              <Trash2 className="w-3.5 h-3.5" />
+            <Button variant="ghost" size="icon-sm" onClick={() => onArchive(rule.id)} title="Archive Rule">
+              <Archive className="w-3.5 h-3.5" />
             </Button>
           </div>
 
