@@ -1,5 +1,9 @@
 // Match type for field selectors
-export type MatchType = 'name' | 'id';
+// - 'id': Match by element ID attribute
+// - 'name': Match by element name attribute
+// - 'querySelector': Use document.querySelector() directly
+// Selectors can use /regex/ syntax for regex matching (id/name only)
+export type MatchType = 'id' | 'name' | 'querySelector';
 
 // Value types for dynamic generation
 export type ValueType = 'static' | 'template';

@@ -45,7 +45,7 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     const newMapping: FieldMapping = {
       id: generateId(),
       selector: '',
-      matchType: 'name',
+      matchType: 'id',
       valueType: 'static',
       value: '',
     };
@@ -142,8 +142,8 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
             label="URL Pattern"
             value={formData.urlPattern}
             onChange={(e) => updateField('urlPattern', e.target.value)}
-            placeholder="*://example.com/* or *"
-            hint="Use * for all sites"
+            placeholder="*://example.com/* or /regex/"
+            hint="Use * for all sites, /regex/ for regex"
             mono
           />
         </div>
@@ -192,9 +192,22 @@ interface FieldMappingRowProps {
 }
 
 const matchTypeOptions = [
-  { value: 'name', label: 'Name' },
   { value: 'id', label: 'ID' },
+  { value: 'name', label: 'Name' },
+  { value: 'querySelector', label: 'Query Selector' },
 ];
+
+// Get placeholder text based on matchType
+function getSelectorPlaceholder(matchType: MatchType): string {
+  switch (matchType) {
+    case 'id':
+      return 'user-email or /^input-\\d+$/';
+    case 'name':
+      return 'email or /^user_.+$/';
+    case 'querySelector':
+      return '#form input[type="email"]';
+  }
+}
 
 function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
   return (
@@ -229,7 +242,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
             type="text"
             value={field.selector}
             onChange={(e) => onUpdate({ selector: e.target.value })}
-            placeholder="email"
+            placeholder={getSelectorPlaceholder(field.matchType)}
             className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
           />
         </div>
