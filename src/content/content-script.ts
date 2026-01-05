@@ -1,16 +1,58 @@
 import type { FillRule, FieldMapping, ExtensionMessage } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
+// Parse /regex/ syntax - returns the pattern if wrapped in slashes, otherwise null
+function parseRegexSelector(selector: string): RegExp | null {
+  const match = selector.match(/^\/(.+)\/$/);
+  if (match) {
+    try {
+      return new RegExp(match[1]);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Find element by attribute using regex matching
+function findElementByRegex(
+  attrName: 'id' | 'name',
+  regex: RegExp
+): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
+  const elements = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+    'input, textarea, select'
+  );
+  for (const el of elements) {
+    const attrValue = el.getAttribute(attrName);
+    if (attrValue && regex.test(attrValue)) {
+      return el;
+    }
+  }
+  return null;
+}
+
 // Find an input element based on the field mapping
 function findElement(mapping: FieldMapping): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
   const { selector, matchType } = mapping;
 
   try {
     switch (matchType) {
-      case 'name':
-        return document.querySelector(`[name="${selector}"]`);
-      case 'id':
+      case 'id': {
+        const regex = parseRegexSelector(selector);
+        if (regex) {
+          return findElementByRegex('id', regex);
+        }
         return document.getElementById(selector) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+      }
+      case 'name': {
+        const regex = parseRegexSelector(selector);
+        if (regex) {
+          return findElementByRegex('name', regex);
+        }
+        return document.querySelector(`[name="${selector}"]`);
+      }
+      case 'querySelector':
+        return document.querySelector(selector);
       default:
         return null;
     }

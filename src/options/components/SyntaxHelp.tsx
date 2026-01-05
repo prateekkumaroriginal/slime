@@ -129,6 +129,43 @@ export default function SyntaxHelp({ isOpen, onToggle, canOpen = true }: SyntaxH
             <p className="mt-2 text-xs text-zinc-500">→ user_1@gmail.com</p>
           </div>
 
+          <div className="mt-6 pt-6 border-t border-zinc-800">
+            <p className="text-xs font-medium text-zinc-400 mb-2">Match Types</p>
+            <div className="space-y-2 text-xs">
+              <div>
+                <code className="px-2 py-0.5 bg-zinc-800 rounded text-zinc-300">ID</code>
+                <span className="text-zinc-500 ml-2">Match by element id attribute</span>
+              </div>
+              <div>
+                <code className="px-2 py-0.5 bg-zinc-800 rounded text-zinc-300">Name</code>
+                <span className="text-zinc-500 ml-2">Match by element name attribute</span>
+              </div>
+              <div>
+                <code className="px-2 py-0.5 bg-zinc-800 rounded text-zinc-300">Query Selector</code>
+                <span className="text-zinc-500 ml-2">Use any CSS selector</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-zinc-800">
+            <p className="text-xs font-medium text-zinc-400 mb-2">Regex Syntax</p>
+            <p className="text-xs text-zinc-500 mb-3">
+              Wrap in <code className="px-1 bg-zinc-800 rounded text-emerald-400">/slashes/</code> for regex matching
+            </p>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-zinc-400 mb-1">Selector (ID/Name)</p>
+                <code className="block px-2 py-1 bg-zinc-800 rounded text-xs text-emerald-400">/^user-\d+$/</code>
+                <p className="text-xs text-zinc-500 mt-1">→ matches user-1, user-42, etc.</p>
+              </div>
+              <div className="mt-3">
+                <p className="text-xs text-zinc-400 mb-1">URL Pattern</p>
+                <code className="block px-2 py-1 bg-zinc-800 rounded text-xs text-emerald-400 break-all">{'/^https?:\\/\\/example\\.com/'}</code>
+                <p className="text-xs text-zinc-500 mt-1">→ matches http/https on example.com</p>
+              </div>
+            </div>
+          </div>
+
           {/* Keyboard shortcuts */}
           <div className="mt-6 pt-6 border-t border-zinc-800">
             <p className="text-xs text-zinc-500 flex items-center gap-2">

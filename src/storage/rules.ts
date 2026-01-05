@@ -9,7 +9,7 @@ import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS } from '@/shared/confi
 const FieldMappingSchema = z.object({
   id: z.string({ message: 'Field id must be a string' }),
   selector: z.string({ message: 'Field selector must be a string' }),
-  matchType: z.enum(['name', 'id'], { message: 'matchType must be "name" or "id"' }),
+  matchType: z.enum(['id', 'name', 'querySelector'], { message: 'matchType must be "id", "name", or "querySelector"' }),
   valueType: z.enum(['static', 'template'], { message: 'valueType must be "static" or "template"' }),
   value: z.string({ message: 'Field value must be a string' }),
 });
@@ -95,6 +95,7 @@ export async function resetIncrement(id: string): Promise<void> {
 }
 
 // Get rules matching a URL
+// Supports /regex/ syntax for raw regex patterns
 export function matchesUrl(pattern: string, url: string): boolean {
   // Handle wildcard patterns like "*://example.com/*"
   if (pattern === '*' || pattern === '<all_urls>') {
@@ -102,10 +103,18 @@ export function matchesUrl(pattern: string, url: string): boolean {
   }
 
   try {
-    // Convert Chrome extension URL pattern to regex
+    // Check for /regex/ syntax
+    const regexMatch = pattern.match(/^\/(.+)\/$/);
+    if (regexMatch) {
+      // Use raw regex pattern
+      const regex = new RegExp(regexMatch[1]);
+      return regex.test(url);
+    }
+
+    // Convert Chrome extension URL pattern to regex (wildcard mode)
     const regexPattern = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
-      .replace(/\\\*/g, '.*'); // Convert * to .*
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex chars (including *)
+      .replace(/\\\*/g, '.*'); // Convert escaped \* back to .*
 
     const regex = new RegExp(`^${regexPattern}$`, 'i');
     return regex.test(url);
