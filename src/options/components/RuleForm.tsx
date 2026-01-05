@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
-import { Plus, Trash2, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Archive, RefreshCcw } from 'lucide-react';
 import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
 import { Button, Input, Select, Checkbox, Card } from '@/components';
@@ -105,8 +105,8 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
         <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
         <div className="flex items-center gap-2">
           {!isNew && formData.isArchived && (
-            <Button type="button" variant="ghost" onClick={handleRestore}>
-              <RotateCcw className="w-4 h-4" />
+            <Button type="button" variant="ghost" onClick={handleRestore} className="hover:text-green-400 hover:bg-green-500/20">
+              <RefreshCcw className="w-4 h-4" />
               Restore
             </Button>
           )}
@@ -117,7 +117,7 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
             </Button>
           )}
           {!isNew && !formData.isArchived && (
-            <Button type="button" variant="ghost" onClick={handleArchive}>
+            <Button type="button" variant="ghost" onClick={handleArchive} className="hover:text-orange-400 hover:bg-orange-500/20">
               <Archive className="w-4 h-4" />
               Archive
             </Button>

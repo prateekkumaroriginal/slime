@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, FileText, Download, Upload, Menu } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
-import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
+import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -131,6 +131,26 @@ export default function Options() {
     }
   }
 
+  function handleExportSingle(rule: FillRule) {
+    try {
+      const jsonString = exportSingleRuleToJson(rule);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Sanitize rule name for filename
+      const sanitizedName = rule.name.replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'rule';
+      const date = new Date().toISOString().split('T')[0];
+      a.download = `slime-rule-${sanitizedName}-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert(`Failed to export rule: ${error}`);
+    }
+  }
+
   function handleImportClick() {
     fileInputRef.current?.click();
   }
@@ -234,6 +254,7 @@ export default function Options() {
                 onResetIncrement={handleResetIncrement}
                 onDuplicate={handleDuplicate}
                 onToggle={handleToggle}
+                onExport={handleExportSingle}
               />
             )}
           </>
@@ -248,6 +269,7 @@ export default function Options() {
         onRestore={handleRestore}
         onEdit={handleEdit}
         onPermanentDelete={handlePermanentDelete}
+        onExport={handleExportSingle}
       />
     </div>
   );

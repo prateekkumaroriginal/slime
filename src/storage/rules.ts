@@ -196,6 +196,11 @@ export async function exportRulesToJson(): Promise<string> {
   return JSON.stringify({ rules, exportedAt: Date.now(), version: CURRENT_VERSION }, null, 2);
 }
 
+// Export a single rule as JSON string
+export function exportSingleRuleToJson(rule: FillRule): string {
+  return JSON.stringify({ rules: [rule], exportedAt: Date.now(), version: CURRENT_VERSION }, null, 2);
+}
+
 // Validation error for import
 export class ImportValidationError extends Error {
   constructor(message: string) {

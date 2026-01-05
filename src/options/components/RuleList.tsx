@@ -1,4 +1,4 @@
-import { Copy, RotateCcw, SquarePen, Archive } from 'lucide-react';
+import { Copy, RotateCcw, SquarePen, Archive, Upload } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
 import { Button, Switch } from '@/components';
 
@@ -9,9 +9,10 @@ interface RuleListProps {
   onResetIncrement: (id: string) => void;
   onDuplicate: (rule: FillRule) => void;
   onToggle: (id: string) => void;
+  onExport: (rule: FillRule) => void;
 }
 
-export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, onDuplicate, onToggle }: RuleListProps) {
+export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, onDuplicate, onToggle, onExport }: RuleListProps) {
   return (
     <div className="space-y-3">
       {rules.map((rule) => (
@@ -30,16 +31,49 @@ export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, o
 
           {/* Top-right action buttons */}
           <div className="absolute top-0 right-0 flex items-center p-1">
-            <Button variant="ghost" size="icon-sm" onClick={() => onResetIncrement(rule.id)} title="Reset Counter">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onExport(rule)}
+              title="Export Rule"
+              className="hover:text-violet-400 hover:bg-violet-500/20"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onResetIncrement(rule.id)}
+              title="Reset Counter"
+              className="hover:text-amber-400 hover:bg-amber-500/20"
+            >
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="icon-sm" onClick={() => onDuplicate(rule)} title="Duplicate Rule">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onDuplicate(rule)}
+              title="Duplicate Rule"
+              className="hover:text-fuchsia-400 hover:bg-fuchsia-500/20"
+            >
               <Copy className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="icon-sm" onClick={() => onEdit(rule)} title="Edit Rule">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onEdit(rule)}
+              title="Edit Rule"
+              className="hover:text-cyan-400 hover:bg-cyan-500/20"
+            >
               <SquarePen className="w-3.5 h-3.5" />
             </Button>
-            <Button variant="ghost" size="icon-sm" onClick={() => onArchive(rule.id)} title="Archive Rule">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onArchive(rule.id)}
+              title="Archive Rule"
+              className="hover:text-orange-400 hover:bg-orange-500/20"
+            >
               <Archive className="w-3.5 h-3.5" />
             </Button>
           </div>

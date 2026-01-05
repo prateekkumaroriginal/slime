@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, RotateCcw, SquarePen, Trash2 } from 'lucide-react';
+import { X, RefreshCcw, SquarePen, Trash2, Upload } from 'lucide-react';
 import type { FillRule } from '@/shared/types';
 import { Button } from '@/components';
 
@@ -10,6 +10,7 @@ interface ArchivedRulesSidebarProps {
   onRestore: (id: string) => void;
   onEdit: (rule: FillRule) => void;
   onPermanentDelete: (id: string) => void;
+  onExport: (rule: FillRule) => void;
 }
 
 export default function ArchivedRulesSidebar({
@@ -19,6 +20,7 @@ export default function ArchivedRulesSidebar({
   onRestore,
   onEdit,
   onPermanentDelete,
+  onExport,
 }: ArchivedRulesSidebarProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -75,32 +77,40 @@ export default function ArchivedRulesSidebar({
                   </div>
                   <div className="flex items-center justify-center gap-2">
                     <Button
-                      variant="secondary"
-                      size="sm"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => onRestore(rule.id)}
                       title="Restore Rule"
+                      className="hover:text-green-400 hover:bg-green-500/20"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Restore
+                      <RefreshCcw className="w-3.5 h-3.5" />
                     </Button>
                     <Button
-                      variant="secondary"
-                      size="sm"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onExport(rule)}
+                      title="Export Rule"
+                      className="hover:text-violet-400 hover:bg-violet-500/20"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => onEdit(rule)}
                       title="Edit Rule"
+                      className="hover:text-cyan-400 hover:bg-cyan-500/20"
                     >
                       <SquarePen className="w-3.5 h-3.5" />
-                      Edit
                     </Button>
                     <Button
-                      variant="danger"
-                      size="sm"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => onPermanentDelete(rule.id)}
                       title="Delete Permanently"
-                      className="text-zinc-300"
+                      className="hover:text-red-400 hover:bg-red-500/20"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Delete
                     </Button>
                   </div>
                 </div>
