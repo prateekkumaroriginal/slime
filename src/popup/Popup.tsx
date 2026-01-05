@@ -41,7 +41,7 @@ export default function Popup() {
       });
 
       if (response?.success) {
-        setMessage({ type: 'success', text: `Filled ${response.filledCount} field(s)` });
+        window.close();
       } else {
         setMessage({
           type: 'error',
