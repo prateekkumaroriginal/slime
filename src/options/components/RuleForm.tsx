@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
 import { Plus, Trash2, Archive, RefreshCcw } from 'lucide-react';
-import type { FillRule, FieldMapping, MatchType } from '@/shared/types';
+import type { FillRule, FieldMapping, MatchType, ValueType } from '@/shared/types';
 import { generateId } from '@/storage/rules';
 import { Button, Input, Select, Checkbox, Card } from '@/components';
 
@@ -197,6 +197,13 @@ const matchTypeOptions = [
   { value: 'querySelector', label: 'Query Selector' },
 ];
 
+const valueTypeOptions = [
+  { value: 'static', label: 'Static' },
+  { value: 'template', label: 'Template' },
+  { value: 'title', label: 'Title' },
+  { value: 'desc', label: 'Description' },
+];
+
 // Get placeholder text based on matchType
 function getSelectorPlaceholder(matchType: MatchType): string {
   switch (matchType) {
@@ -209,7 +216,40 @@ function getSelectorPlaceholder(matchType: MatchType): string {
   }
 }
 
+// Generate the internal placeholder syntax for title/desc
+function generatePlaceholderValue(valueType: ValueType, minLength?: number, maxLength?: number): string {
+  if (valueType !== 'title' && valueType !== 'desc') return '';
+  
+  const type = valueType;
+  if (minLength || maxLength) {
+    const min = minLength ?? '';
+    const max = maxLength ?? '';
+    return `{{${type}:${min},${max}}}`;
+  }
+  return `{{${type}}}`;
+}
+
 function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
+  // Handle value type change
+  function handleValueTypeChange(newType: ValueType) {
+    if (newType === 'title' || newType === 'desc') {
+      // Auto-generate placeholder syntax
+      const value = generatePlaceholderValue(newType, field.minLength, field.maxLength);
+      onUpdate({ valueType: newType, value });
+    } else {
+      // Clear min/max when switching to static/template
+      onUpdate({ valueType: newType, value: '', minLength: undefined, maxLength: undefined });
+    }
+  }
+
+  // Handle min/max changes for title/desc
+  function handleMinMaxChange(minLength?: number, maxLength?: number) {
+    const value = generatePlaceholderValue(field.valueType, minLength, maxLength);
+    onUpdate({ minLength, maxLength, value });
+  }
+
+  const isContentType = field.valueType === 'title' || field.valueType === 'desc';
+
   return (
     <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700">
       {/* Top bar with number and delete */}
@@ -228,35 +268,81 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
       </div>
 
       {/* Form fields */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Select
-          label="Match By"
-          value={field.matchType}
-          onChange={(value) => onUpdate({ matchType: value as MatchType })}
-          options={matchTypeOptions}
-        />
+      <div className="flex flex-col gap-4">
+        {/* Row 1: Match By, Selector, Value Type */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Select
+            label="Match By"
+            value={field.matchType}
+            onChange={(value) => onUpdate({ matchType: value as MatchType })}
+            options={matchTypeOptions}
+          />
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Selector</label>
-          <input
-            type="text"
-            value={field.selector}
-            onChange={(e) => onUpdate({ selector: e.target.value })}
-            placeholder={getSelectorPlaceholder(field.matchType)}
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Selector</label>
+            <input
+              type="text"
+              value={field.selector}
+              onChange={(e) => onUpdate({ selector: e.target.value })}
+              placeholder={getSelectorPlaceholder(field.matchType)}
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+            />
+          </div>
+
+          <Select
+            label="Value Type"
+            value={field.valueType}
+            onChange={(value) => handleValueTypeChange(value as ValueType)}
+            options={valueTypeOptions}
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-zinc-400 mb-1">Value (static or template)</label>
-          <input
-            type="text"
-            value={field.value}
-            onChange={(e) => onUpdate({ value: e.target.value })}
-            placeholder="john@example.com or user_{{inc}}@test.com"
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </div>
+        {/* Row 2: Value input or Min/Max inputs */}
+        {isContentType ? (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Min Chars</label>
+              <input
+                type="number"
+                value={field.minLength ?? ''}
+                onChange={(e) => handleMinMaxChange(
+                  e.target.value ? parseInt(e.target.value, 10) : undefined,
+                  field.maxLength
+                )}
+                placeholder="No minimum"
+                min={0}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Max Chars</label>
+              <input
+                type="number"
+                value={field.maxLength ?? ''}
+                onChange={(e) => handleMinMaxChange(
+                  field.minLength,
+                  e.target.value ? parseInt(e.target.value, 10) : undefined
+                )}
+                placeholder="No maximum"
+                min={0}
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">
+              {field.valueType === 'template' ? 'Value (use {{placeholders}})' : 'Value'}
+            </label>
+            <input
+              type="text"
+              value={field.value}
+              onChange={(e) => onUpdate({ value: e.target.value })}
+              placeholder={field.valueType === 'template' ? 'user_{{inc}}@test.com' : 'john@example.com'}
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -53,7 +53,7 @@ export default function Select({ label, value, options, onChange, className = ''
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-zinc-800 border border-zinc-600 rounded-lg shadow-xl overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full rounded-lg shadow-xl overflow-hidden border border-zinc-600 bg-zinc-800">
           {options.map((option) => (
             <button
               key={option.value}

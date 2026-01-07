@@ -6,7 +6,7 @@
 export type MatchType = 'id' | 'name' | 'querySelector';
 
 // Value types for dynamic generation
-export type ValueType = 'static' | 'template';
+export type ValueType = 'static' | 'template' | 'title' | 'desc';
 
 // Field mapping within a rule
 export interface FieldMapping {
@@ -15,6 +15,8 @@ export interface FieldMapping {
   matchType: MatchType;
   valueType: ValueType;
   value: string; // Raw value or template string with {{placeholders}}
+  minLength?: number; // Min characters for title/desc
+  maxLength?: number; // Max characters for title/desc
 }
 
 // A fill rule configuration
@@ -53,7 +55,7 @@ export interface FillCompleteMessage {
 export type ExtensionMessage = FillFormMessage | FillCompleteMessage;
 
 // Template placeholder types
-export type PlaceholderType = 'inc' | 'random' | 'pick' | 'date' | 'regex';
+export type PlaceholderType = 'inc' | 'random' | 'pick' | 'date' | 'regex' | 'title' | 'desc';
 
 export interface ParsedPlaceholder {
   type: PlaceholderType;

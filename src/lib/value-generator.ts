@@ -1,4 +1,5 @@
 import RandExp from 'randexp';
+import { sentence, paragraph } from 'txtgen';
 import type { ParsedPlaceholder, PlaceholderType } from '@/shared/types';
 
 // Combined regex for placeholders:
@@ -92,6 +93,59 @@ function generateFromRegex(pattern: string): string {
   }
 }
 
+// Constrain text to min/max character length
+function constrainLength(text: string, minLen?: number, maxLen?: number, generator?: () => string): string {
+  let result = text;
+  
+  // If text is too short and we have a minimum, keep generating and appending
+  if (minLen && result.length < minLen && generator) {
+    while (result.length < minLen) {
+      result += ' ' + generator();
+    }
+  }
+  
+  // If text is too long and we have a maximum, truncate at word boundary
+  if (maxLen && result.length > maxLen) {
+    result = result.slice(0, maxLen);
+    // Try to truncate at last space to avoid cutting words
+    const lastSpace = result.lastIndexOf(' ');
+    if (lastSpace > maxLen * 0.7) {
+      result = result.slice(0, lastSpace);
+    }
+    result = result.trimEnd();
+    // Add ellipsis if we truncated mid-content
+    if (result.length < text.length && !result.endsWith('.')) {
+      result = result.replace(/[,;:]$/, '') + '...';
+    }
+  }
+  
+  return result;
+}
+
+// Parse min,max params (e.g., "20,80" or ",80" or "20,")
+function parseMinMax(params?: string): { min?: number; max?: number } {
+  if (!params) return {};
+  const [minStr, maxStr] = params.split(',');
+  return {
+    min: minStr ? parseInt(minStr, 10) : undefined,
+    max: maxStr ? parseInt(maxStr, 10) : undefined,
+  };
+}
+
+// Generate a title (short sentence) with optional length constraints
+function generateTitle(minLen?: number, maxLen?: number): string {
+  let text = sentence();
+  // Remove trailing period for title-like appearance
+  text = text.replace(/\.$/, '');
+  return constrainLength(text, minLen, maxLen, () => sentence().replace(/\.$/, ''));
+}
+
+// Generate a description (paragraph) with optional length constraints
+function generateDescription(minLen?: number, maxLen?: number): string {
+  let text = paragraph();
+  return constrainLength(text, minLen, maxLen, paragraph);
+}
+
 // Resolve a single placeholder
 function resolvePlaceholder(
   placeholder: ParsedPlaceholder,
@@ -123,6 +177,16 @@ function resolvePlaceholder(
     case 'regex': {
       if (!params) return { value: '' };
       return { value: generateFromRegex(params) };
+    }
+
+    case 'title': {
+      const { min, max } = parseMinMax(params);
+      return { value: generateTitle(min, max) };
+    }
+
+    case 'desc': {
+      const { min, max } = parseMinMax(params);
+      return { value: generateDescription(min, max) };
     }
 
     default:
