@@ -114,16 +114,16 @@ Dynamic content using placeholders:
 | `ss` | Seconds (zero-padded) | 00-59 |
 
 ### Title
-Generates realistic, grammatically correct short text. Perfect for form titles, subject lines, and headings.
+Generates meaningful English phrases. Perfect for form titles, subject lines, and headings.
 
 - Optional min/max character limits
-- Example: *"The funded pullback exaggerates a fudge"*
+- Example: *"Streamlined hybrid framework"*, *"Innovative zero-defect paradigm"*
 
 ### Description
-Generates realistic paragraphs of text. Perfect for textareas, bio fields, comments, and descriptions.
+Generates Lorem Ipsum paragraphs. Perfect for textareas, bio fields, comments, and descriptions.
 
 - Optional min/max character limits
-- Example: *"The hierarchy fires the pedestrian. Whatever existing transmission prevails around the diary."*
+- Example: *"Voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis."*
 
 ## Keyboard Shortcuts
 

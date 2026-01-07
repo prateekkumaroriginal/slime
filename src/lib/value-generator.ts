@@ -1,5 +1,5 @@
 import RandExp from 'randexp';
-import { sentence, paragraph } from 'txtgen';
+import { faker } from '@faker-js/faker';
 import type { ParsedPlaceholder, PlaceholderType } from '@/shared/types';
 
 // Combined regex for placeholders:
@@ -11,6 +11,9 @@ const PLACEHOLDER_REGEX = /\{\{regex:\[(.+?)\]\}\}|\{\{(\w+)(?::([^}]+))?\}\}/gi
 function parsePlaceholders(template: string): ParsedPlaceholder[] {
   const placeholders: ParsedPlaceholder[] = [];
   let match;
+
+  // Reset lastIndex BEFORE parsing to avoid state pollution from previous regex usage
+  PLACEHOLDER_REGEX.lastIndex = 0;
 
   while ((match = PLACEHOLDER_REGEX.exec(template)) !== null) {
     if (match[1] !== undefined) {
@@ -30,8 +33,6 @@ function parsePlaceholders(template: string): ParsedPlaceholder[] {
       });
     }
   }
-  // Reset regex lastIndex for next use
-  PLACEHOLDER_REGEX.lastIndex = 0;
 
   return placeholders;
 }
@@ -134,16 +135,14 @@ function parseMinMax(params?: string): { min?: number; max?: number } {
 
 // Generate a title (short sentence) with optional length constraints
 function generateTitle(minLen?: number, maxLen?: number): string {
-  let text = sentence();
-  // Remove trailing period for title-like appearance
-  text = text.replace(/\.$/, '');
-  return constrainLength(text, minLen, maxLen, () => sentence().replace(/\.$/, ''));
+  let text = faker.company.catchPhrase();
+  return constrainLength(text, minLen, maxLen, () => faker.company.catchPhrase());
 }
 
 // Generate a description (paragraph) with optional length constraints
 function generateDescription(minLen?: number, maxLen?: number): string {
-  let text = paragraph();
-  return constrainLength(text, minLen, maxLen, paragraph);
+  let text = faker.lorem.paragraph();
+  return constrainLength(text, minLen, maxLen, () => faker.lorem.paragraph());
 }
 
 // Resolve a single placeholder

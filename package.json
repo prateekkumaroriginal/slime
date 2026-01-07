@@ -10,12 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.2.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.4.0",
-    "txtgen": "^3.0.7",
     "zod": "^4.2.1"
   },
   "devDependencies": {
