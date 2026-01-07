@@ -5,44 +5,41 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 ## Features
 
 - **Rule-based filling** — Create rules that match specific URLs and fill multiple fields at once
-- **Field matching** — Match input fields by `name` or `id` attribute
+- **Flexible field matching** — Match input fields by ID, Name, or Query Selector (with regex support)
 - **Dynamic templates** — Use placeholders for auto-incrementing numbers, random strings, dates, and more
+- **Smart content generation** — Generate realistic titles and descriptions for textareas
 - **Multiple rules** — Create different fill profiles (e.g., Admin, User, Tester) and switch between them
 - **URL patterns** — Rules can be scoped to specific sites or apply globally
-
-## Template Syntax
-
-Use these placeholders in your field values for dynamic content:
-
-| Syntax | Description | Example Output |
-|--------|-------------|----------------|
-| `{{inc}}` | Auto-incrementing number | 1, 2, 3... |
-| `{{inc:100}}` | Increment starting from value | 100, 101, 102... |
-| `{{random:5}}` | Random alphanumeric string of length | xK9pL |
-| `{{pick:a,b,c}}` | Random pick from comma-separated list | b |
-| `{{date:YYYY-MM-DD}}` | Current date/time formatted | 2025-12-27 |
-| `{{regex:[A-Z]{2}\d{3}}}` | Generate string from regex pattern | AB123 |
-
-### Date Format Tokens
-
-| Token | Description | Example |
-|-------|-------------|---------|
-| `YYYY` | 4-digit year | 2025 |
-| `YY` | 2-digit year | 25 |
-| `MM` | Month (zero-padded) | 01-12 |
-| `DD` | Day (zero-padded) | 01-31 |
-| `HH` | Hour 24h (zero-padded) | 00-23 |
-| `mm` | Minutes (zero-padded) | 00-59 |
-| `ss` | Seconds (zero-padded) | 00-59 |
+- **Rule management** — Archive, restore, import/export, and duplicate rules
 
 ## Installation
 
-### Prerequisites
+### Download (Recommended)
+
+1. **Download the latest release**
+   
+   [**Download slime-v1.0.0.zip**](https://github.com/prateekkumaroriginal/slime/releases/download/v1.0.0/slime-v1.0.0.zip)
+
+2. **Extract the zip** to a folder on your computer
+
+3. **Load in Chrome**
+   - Open Chrome and navigate to `chrome://extensions/`
+   - Enable **Developer mode** (toggle in top-right corner)
+   - Click **Load unpacked**
+   - Select the extracted folder
+   - The Slime extension should now appear in your toolbar
+
+### Build from Source
+
+<details>
+<summary>Click to expand</summary>
+
+#### Prerequisites
 
 - Node.js (v18+)
 - pnpm (or npm/yarn)
 
-### Build from Source
+#### Steps
 
 1. **Clone the repository**
    ```bash
@@ -61,13 +58,9 @@ Use these placeholders in your field values for dynamic content:
    ```
    This creates a `dist/` folder with the built extension.
 
-### Load in Chrome
+4. **Load in Chrome** (same steps as above, select the `dist/` folder)
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top-right corner)
-3. Click **Load unpacked**
-4. Select the `dist/` folder from this project
-5. The Slime extension should now appear in your toolbar
+</details>
 
 ## Usage
 
@@ -83,12 +76,62 @@ Use these placeholders in your field values for dynamic content:
 
 Create a rule to fill a signup form:
 
-| Match By | Selector | Value |
-|----------|----------|-------|
-| Name | `email` | `user_{{inc}}@test.com` |
-| Name | `username` | `testuser{{random:4}}` |
-| Name | `password` | `Test@123` |
-| ID | `country` | `{{pick:US,UK,CA,AU}}` |
+| Match By | Selector | Value Type | Value |
+|----------|----------|------------|-------|
+| Name | `email` | Template | `user_{{inc}}@test.com` |
+| Name | `username` | Template | `testuser{{random:4}}` |
+| Name | `password` | Static | `Test@123` |
+| ID | `country` | Template | `{{pick:US,UK,CA,AU}}` |
+| Name | `bio` | Description | (min: 50, max: 200) |
+
+## Value Types
+
+### Static
+Plain text value, used as-is.
+
+### Template
+Dynamic content using placeholders:
+
+| Syntax | Description | Example Output |
+|--------|-------------|----------------|
+| `{{inc}}` | Auto-incrementing number | 1, 2, 3... |
+| `{{inc:100}}` | Increment starting from value | 100, 101, 102... |
+| `{{random:5}}` | Random alphanumeric string of length | xK9pL |
+| `{{pick:a,b,c}}` | Random pick from comma-separated list | b |
+| `{{date:YYYY-MM-DD}}` | Current date/time formatted | 2025-01-07 |
+| `{{regex:[A-Z]{2}\d{3}}}` | Generate string from regex pattern | AB123 |
+
+#### Date Format Tokens
+
+| Token | Description | Example |
+|-------|-------------|---------|
+| `YYYY` | 4-digit year | 2025 |
+| `YY` | 2-digit year | 25 |
+| `MM` | Month (zero-padded) | 01-12 |
+| `DD` | Day (zero-padded) | 01-31 |
+| `HH` | Hour 24h (zero-padded) | 00-23 |
+| `mm` | Minutes (zero-padded) | 00-59 |
+| `ss` | Seconds (zero-padded) | 00-59 |
+
+### Title
+Generates realistic, grammatically correct short text. Perfect for form titles, subject lines, and headings.
+
+- Optional min/max character limits
+- Example: *"The funded pullback exaggerates a fudge"*
+
+### Description
+Generates realistic paragraphs of text. Perfect for textareas, bio fields, comments, and descriptions.
+
+- Optional min/max character limits
+- Example: *"The hierarchy fires the pedestrian. Whatever existing transmission prevails around the diary."*
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Enter` | Save rule |
+| `Escape` | Cancel / Close sidebar |
+| `Ctrl+I` | Toggle syntax help |
 
 ## Development
 
