@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, FileText, Download, Upload, Menu } from 'lucide-react';
-import type { FillRule } from '@/shared/types';
-import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId } from '@/storage/rules';
+import { Plus, FileText, Download, Upload, Menu, Zap } from 'lucide-react';
+import type { FillRule, DefaultRuleMapping } from '@/shared/types';
+import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
 import SyntaxHelp from './components/SyntaxHelp';
 import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
+import FabConfig from './components/FabConfig';
 
 export default function Options() {
   const [rules, setRules] = useState<FillRule[]>([]);
@@ -15,10 +16,13 @@ export default function Options() {
   const [isCreating, setIsCreating] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [isArchivedSidebarOpen, setIsArchivedSidebarOpen] = useState(false);
+  const [showFabConfig, setShowFabConfig] = useState(false);
+  const [defaultMappings, setDefaultMappings] = useState<DefaultRuleMapping[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadRules();
+    loadDefaultMappings();
   }, []);
 
   async function loadRules() {
@@ -26,6 +30,25 @@ export default function Options() {
     const archived = await getArchivedRules();
     setRules(activeRules);
     setArchivedRules(archived);
+  }
+
+  async function loadDefaultMappings() {
+    const mappings = await getDefaultRuleMappings();
+    setDefaultMappings(mappings);
+  }
+
+  async function handleSetDefault(rule: FillRule) {
+    if (confirm(`Set "${rule.name}" as default for URL pattern: ${rule.urlPattern}?`)) {
+      await setDefaultRuleForUrl(rule.urlPattern, rule.id);
+      await loadDefaultMappings();
+    }
+  }
+
+  async function handleRemoveDefault(urlPattern: string) {
+    if (confirm(`Remove default rule for URL pattern: ${urlPattern}?`)) {
+      await removeDefaultRuleForUrl(urlPattern);
+      await loadDefaultMappings();
+    }
   }
 
   function handleCreate() {
@@ -198,7 +221,9 @@ export default function Options() {
           <p className="text-zinc-400 mt-2">Manage your form filling rules and field mappings</p>
         </header>
 
-        {editingRule ? (
+        {showFabConfig ? (
+          <FabConfig onBack={() => setShowFabConfig(false)} />
+        ) : editingRule ? (
           <RuleForm
             rule={editingRule}
             onSave={handleSave}
@@ -215,6 +240,10 @@ export default function Options() {
             <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
               <div className="flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={() => setShowFabConfig(true)}>
+                  <Zap className="w-4 h-4" />
+                  Action Button
+                </Button>
                 <Button variant="secondary" onClick={handleExport}>
                   <Upload className="w-4 h-4" />
                   Export
@@ -255,6 +284,9 @@ export default function Options() {
                 onDuplicate={handleDuplicate}
                 onToggle={handleToggle}
                 onExport={handleExportSingle}
+                defaultMappings={defaultMappings}
+                onSetDefault={handleSetDefault}
+                onRemoveDefault={handleRemoveDefault}
               />
             )}
           </>

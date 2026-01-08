@@ -1,5 +1,5 @@
-import { Copy, RotateCcw, SquarePen, Archive, Upload } from 'lucide-react';
-import type { FillRule } from '@/shared/types';
+import { Copy, RotateCcw, SquarePen, Archive, Upload, Star } from 'lucide-react';
+import type { FillRule, DefaultRuleMapping } from '@/shared/types';
 import { Button, Switch } from '@/components';
 
 interface RuleListProps {
@@ -10,9 +10,27 @@ interface RuleListProps {
   onDuplicate: (rule: FillRule) => void;
   onToggle: (id: string) => void;
   onExport: (rule: FillRule) => void;
+  defaultMappings?: DefaultRuleMapping[];
+  onSetDefault?: (rule: FillRule) => void;
+  onRemoveDefault?: (urlPattern: string) => void;
 }
 
-export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, onDuplicate, onToggle, onExport }: RuleListProps) {
+export default function RuleList({ 
+  rules, 
+  onEdit, 
+  onArchive, 
+  onResetIncrement, 
+  onDuplicate, 
+  onToggle, 
+  onExport,
+  defaultMappings = [],
+  onSetDefault,
+  onRemoveDefault,
+}: RuleListProps) {
+  // Check if a rule is set as default for its URL pattern
+  function isDefaultForPattern(rule: FillRule): boolean {
+    return defaultMappings.some(m => m.urlPattern === rule.urlPattern && m.ruleId === rule.id);
+  }
   return (
     <div className="space-y-3">
       {rules.map((rule) => (
@@ -31,6 +49,20 @@ export default function RuleList({ rules, onEdit, onArchive, onResetIncrement, o
 
           {/* Top-right action buttons */}
           <div className="absolute top-0 right-0 flex items-center p-1">
+            {onSetDefault && onRemoveDefault && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => isDefaultForPattern(rule) ? onRemoveDefault(rule.urlPattern) : onSetDefault(rule)}
+                title={isDefaultForPattern(rule) ? 'Remove as default for this URL pattern' : 'Set as default for this URL pattern'}
+                className={isDefaultForPattern(rule) 
+                  ? 'text-yellow-400 bg-yellow-500/20 hover:text-yellow-300 hover:bg-yellow-500/30' 
+                  : 'hover:text-yellow-400 hover:bg-yellow-500/20'
+                }
+              >
+                <Star className="w-3.5 h-3.5" fill={isDefaultForPattern(rule) ? 'currentColor' : 'none'} />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"

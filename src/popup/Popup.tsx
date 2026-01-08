@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Settings } from 'lucide-react';
-import type { FillRule } from '@/shared/types';
+import { Settings, Zap } from 'lucide-react';
+import type { FillRule, FABSettings } from '@/shared/types';
 import { getRulesForUrl } from '@/storage/rules';
 import { Button } from '@/components';
 
@@ -9,10 +9,42 @@ export default function Popup() {
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fabEnabled, setFabEnabled] = useState(false);
+  const [fabLoading, setFabLoading] = useState(true);
 
   useEffect(() => {
     loadRules();
+    loadFabSettings();
   }, []);
+
+  async function loadFabSettings() {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_FAB_SETTINGS' });
+      if (response?.settings) {
+        setFabEnabled(response.settings.enabled);
+      }
+    } catch (error) {
+      console.error('Failed to load FAB settings:', error);
+    } finally {
+      setFabLoading(false);
+    }
+  }
+
+  async function toggleFab() {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_FAB_SETTINGS' });
+      const currentSettings: FABSettings = response?.settings ?? { enabled: false, position: { x: 5, y: 10 } };
+      const newSettings: FABSettings = { ...currentSettings, enabled: !currentSettings.enabled };
+      
+      await chrome.runtime.sendMessage({
+        type: 'SAVE_FAB_SETTINGS',
+        settings: newSettings,
+      });
+      setFabEnabled(newSettings.enabled);
+    } catch (error) {
+      console.error('Failed to toggle FAB:', error);
+    }
+  }
 
   async function loadRules() {
     try {
@@ -64,9 +96,22 @@ export default function Popup() {
     <div className="w-72 bg-zinc-900 text-zinc-100 p-4 font-sans">
       <header className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold tracking-tight text-emerald-400">Slime</h1>
-        <Button variant="ghost" size="icon" onClick={openOptions} title="Manage Rules">
-          <Settings className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {!fabLoading && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleFab} 
+              title={fabEnabled ? 'Disable Action Button' : 'Enable Action Button'}
+              className={fabEnabled ? 'text-emerald-400' : 'text-zinc-500'}
+            >
+              <Zap className="w-5 h-5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={openOptions} title="Manage Rules">
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
       </header>
 
       {loading ? (
