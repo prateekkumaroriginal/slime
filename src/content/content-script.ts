@@ -1131,10 +1131,12 @@ document.addEventListener('keydown', async (e) => {
         console.warn('[Slime] Fill errors:', result.errors);
       }
     } else {
-      console.log('[Slime] No default rule set for this page. Set one using the Action Button menu.');
+      // No default rule - show popup (same as FAB click)
+      await showMiniPopup();
     }
   } catch (error) {
     console.error('[Slime] Error filling with shortcut:', error);
+    await showMiniPopup();
   }
 }, true); // Use capture phase to catch event early
 
