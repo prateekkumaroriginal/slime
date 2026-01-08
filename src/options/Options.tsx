@@ -179,7 +179,7 @@ export default function Options() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+      <div className="max-w-4xl mx-auto px-6 pt-10 pb-[200px]">
         <header className="mb-10">
           <div className="flex items-start justify-between">
             <h1 className="text-3xl font-bold tracking-tight text-emerald-400">Slime</h1>

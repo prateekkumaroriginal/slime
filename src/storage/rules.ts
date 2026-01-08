@@ -6,12 +6,21 @@ import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS } from '@/shared/confi
 // Zod Schema for Import Validation (with custom error messages)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PostActionSchema = z.object({
+  id: z.string({ message: 'PostAction id must be a string' }),
+  type: z.enum(['click', 'focus', 'pressKey', 'wait'], { message: 'PostAction type must be "click", "focus", "pressKey", or "wait"' }),
+  selector: z.string({ message: 'PostAction selector must be a string' }).optional(),
+  key: z.string({ message: 'PostAction key must be a string' }).optional(),
+  delay: z.number({ message: 'PostAction delay must be a number' }).optional(),
+});
+
 const FieldMappingSchema = z.object({
   id: z.string({ message: 'Field id must be a string' }),
   selector: z.string({ message: 'Field selector must be a string' }),
   matchType: z.enum(['id', 'name', 'querySelector'], { message: 'matchType must be "id", "name", or "querySelector"' }),
   valueType: z.enum(['static', 'template'], { message: 'valueType must be "static" or "template"' }),
   value: z.string({ message: 'Field value must be a string' }),
+  postAction: PostActionSchema.optional(),
 });
 
 const FillRuleSchema = z.object({
@@ -20,6 +29,7 @@ const FillRuleSchema = z.object({
   fields: z.array(FieldMappingSchema, { message: 'fields must be an array' }),
   enabled: z.boolean({ message: 'enabled must be a boolean' }),
   incrementCounter: z.number({ message: 'incrementCounter must be a number' }).optional(),
+  postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
 });
 
 const ImportSchema = z.object({

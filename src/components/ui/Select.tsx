@@ -16,7 +16,9 @@ interface SelectProps {
 
 export default function Select({ label, value, options, onChange, className = '' }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
 
@@ -31,6 +33,16 @@ export default function Select({ label, value, options, onChange, className = ''
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  function handleToggle() {
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropdownHeight = options.length * 36 + 2; // ~36px per option + border
+      setOpenUpward(spaceBelow < dropdownHeight && rect.top > dropdownHeight);
+    }
+    setIsOpen(!isOpen);
+  }
+
   function handleSelect(optionValue: string) {
     onChange?.(optionValue);
     setIsOpen(false);
@@ -42,8 +54,9 @@ export default function Select({ label, value, options, onChange, className = ''
         <label className="block text-xs font-medium text-zinc-400 mb-1">{label}</label>
       )}
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={`w-full px-3 py-2 bg-zinc-900 border rounded-lg text-zinc-100 text-sm text-left flex items-center justify-between gap-2 transition-colors ${
           isOpen ? 'border-emerald-500 ring-2 ring-emerald-500' : 'border-zinc-600 hover:border-zinc-500'
         }`}
@@ -53,7 +66,11 @@ export default function Select({ label, value, options, onChange, className = ''
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg shadow-xl overflow-hidden border border-zinc-600 bg-zinc-800">
+        <div
+          className={`absolute z-50 w-full rounded-lg shadow-xl overflow-hidden border border-zinc-600 bg-zinc-800 ${
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           {options.map((option) => (
             <button
               key={option.value}

@@ -8,6 +8,18 @@ export type MatchType = 'id' | 'name' | 'querySelector';
 // Value types for dynamic generation
 export type ValueType = 'static' | 'template' | 'title' | 'desc';
 
+// PostAction types for actions after field/rule completion
+export type PostActionType = 'click' | 'focus' | 'pressKey' | 'wait';
+
+// PostAction configuration
+export interface PostAction {
+  id: string;           // Unique ID for reordering
+  type: PostActionType;
+  selector?: string;    // For click, focus
+  key?: string;         // For pressKey (Enter, Tab, Escape, etc.)
+  delay?: number;       // For wait (milliseconds)
+}
+
 // Field mapping within a rule
 export interface FieldMapping {
   id: string;
@@ -17,6 +29,7 @@ export interface FieldMapping {
   value: string; // Raw value or template string with {{placeholders}}
   minLength?: number; // Min characters for title/desc
   maxLength?: number; // Max characters for title/desc
+  postAction?: PostAction; // Optional action to execute after this field fills successfully
 }
 
 // A fill rule configuration
@@ -28,6 +41,7 @@ export interface FillRule {
   enabled: boolean;
   incrementCounter: number; // Current increment value for {{inc}}
   isArchived?: boolean; // Whether the rule is archived
+  postActions?: PostAction[]; // Chain of actions to execute after all fields complete successfully
   createdAt: number;
   updatedAt: number;
 }
