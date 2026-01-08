@@ -199,12 +199,14 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
     }
   }
 
-  // Execute rule-level postActions if all fields were successful
+  // Execute rule-level postActions chain if all fields were successful
+  // Stop the chain if any action fails
   if (allFieldsSuccessful && rule.postActions && rule.postActions.length > 0) {
     for (const action of rule.postActions) {
       const actionSuccess = await executePostAction(action);
       if (!actionSuccess) {
-        errors.push(`Rule PostAction failed: ${action.type}`);
+        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
+        break;
       }
     }
   }
