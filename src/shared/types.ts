@@ -77,3 +77,86 @@ export interface ParsedPlaceholder {
   params?: string; // Parameters after the colon
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Floating Action Button (FAB) Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// FAB position on screen
+export interface FABPosition {
+  x: number; // Distance from right edge (percentage 0-100)
+  y: number; // Distance from bottom edge (percentage 0-100)
+}
+
+// Keyboard shortcut configuration
+export interface KeyboardShortcut {
+  modifier: 'ctrl' | 'shift' | 'alt';
+  key: string; // Single letter like 'q', 'z', etc.
+}
+
+// FAB settings stored in chrome.storage
+export interface FABSettings {
+  enabled: boolean;
+  position: FABPosition;
+  shortcut: KeyboardShortcut;
+}
+
+// Default rule mapping - maps URL pattern to rule ID
+export interface DefaultRuleMapping {
+  urlPattern: string;
+  ruleId: string;
+}
+
+// Storage structure for default rules
+export interface DefaultRulesData {
+  mappings: DefaultRuleMapping[];
+}
+
+// FAB-related message types
+export interface GetFABSettingsMessage {
+  type: 'GET_FAB_SETTINGS';
+}
+
+export interface SaveFABSettingsMessage {
+  type: 'SAVE_FAB_SETTINGS';
+  settings: FABSettings;
+}
+
+export interface GetDefaultRuleMessage {
+  type: 'GET_DEFAULT_RULE';
+  url: string;
+}
+
+export interface SetDefaultRuleMessage {
+  type: 'SET_DEFAULT_RULE';
+  urlPattern: string;
+  ruleId: string;
+}
+
+export interface RemoveDefaultRuleMessage {
+  type: 'REMOVE_DEFAULT_RULE';
+  urlPattern: string;
+}
+
+export interface GetRulesForUrlMessage {
+  type: 'GET_RULES_FOR_URL';
+  url: string;
+}
+
+export interface GetAllDefaultMappingsMessage {
+  type: 'GET_ALL_DEFAULT_MAPPINGS';
+}
+
+export interface ResetFABPositionMessage {
+  type: 'RESET_FAB_POSITION';
+}
+
+export type FABMessage =
+  | GetFABSettingsMessage
+  | SaveFABSettingsMessage
+  | GetDefaultRuleMessage
+  | SetDefaultRuleMessage
+  | RemoveDefaultRuleMessage
+  | GetRulesForUrlMessage
+  | GetAllDefaultMappingsMessage
+  | ResetFABPositionMessage;
+
