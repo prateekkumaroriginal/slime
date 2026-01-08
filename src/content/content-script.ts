@@ -34,10 +34,10 @@ const FAB_STYLES = `
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: radial-gradient(circle at center, #098c7e 0%, #000000 80%, #048a65 100%);
     border: none;
     cursor: grab;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(16, 185, 129, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -49,7 +49,7 @@ const FAB_STYLES = `
 
   .slime-fab:hover {
     transform: scale(1.08);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(16, 185, 129, 0.35);
   }
 
   .slime-fab:active, .slime-fab.dragging {
@@ -65,9 +65,11 @@ const FAB_STYLES = `
   }
 
   .slime-fab-icon {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     pointer-events: none;
+    border-radius: 50%;
+    object-fit: contain;
   }
 
   /* Popup - matches main extension popup */
@@ -341,8 +343,8 @@ const FAB_STYLES = `
   }
 `;
 
-// Lightning bolt icon (Zap) for FAB
-const LIGHTNING_ICON_SVG = `<svg viewBox="0 0 24 24" class="slime-fab-icon" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+// Slime logo URL (loaded from extension assets)
+const SLIME_LOGO_URL = chrome.runtime.getURL('icons/slime_logo_48.png');
 
 // Settings gear icon
 const SETTINGS_ICON_SVG = `<svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"/></svg>`;
@@ -542,7 +544,7 @@ function createFAB(): void {
   // Create FAB button
   fabButton = document.createElement('button');
   fabButton.className = 'slime-fab';
-  fabButton.innerHTML = LIGHTNING_ICON_SVG;
+  fabButton.innerHTML = `<img src="${SLIME_LOGO_URL}" alt="Slime" class="slime-fab-icon" />`;
   fabButton.title = 'Slime - Click to fill, drag to move';
   fabShadowRoot.appendChild(fabButton);
   
