@@ -1,4 +1,4 @@
-import type { FillRule, FieldMapping, ExtensionMessage, FABSettings } from '@/shared/types';
+import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -356,6 +356,66 @@ const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-
 // Form Filling Functions (existing)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Execute a single PostAction
+async function executePostAction(action: PostAction): Promise<boolean> {
+  try {
+    switch (action.type) {
+      case 'click': {
+        if (!action.selector) return false;
+        const element = document.querySelector(action.selector);
+        if (element instanceof HTMLElement) {
+          element.click();
+          return true;
+        }
+        return false;
+      }
+
+      case 'focus': {
+        if (!action.selector) return false;
+        const element = document.querySelector(action.selector);
+        if (element instanceof HTMLElement) {
+          element.focus();
+          return true;
+        }
+        return false;
+      }
+
+      case 'pressKey': {
+        if (!action.key) return false;
+        const activeElement = document.activeElement || document.body;
+        const keyEvent = new KeyboardEvent('keydown', {
+          key: action.key,
+          code: action.key,
+          bubbles: true,
+          cancelable: true,
+        });
+        activeElement.dispatchEvent(keyEvent);
+        
+        // Also dispatch keyup
+        const keyUpEvent = new KeyboardEvent('keyup', {
+          key: action.key,
+          code: action.key,
+          bubbles: true,
+          cancelable: true,
+        });
+        activeElement.dispatchEvent(keyUpEvent);
+        return true;
+      }
+
+      case 'wait': {
+        const delay = action.delay ?? 0;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return true;
+      }
+
+      default:
+        return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
 // Parse /regex/ syntax - returns the pattern if wrapped in slashes, otherwise null
 function parseRegexSelector(selector: string): RegExp | null {
   const match = selector.match(/^\/(.+)\/$/);
@@ -463,12 +523,14 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
   let filledCount = 0;
   const errors: string[] = [];
   let currentIncrement = rule.incrementCounter;
+  let allFieldsSuccessful = true;
 
   for (const field of rule.fields) {
     const element = findElement(field);
 
     if (!element) {
       errors.push(`Element not found: ${field.matchType}="${field.selector}"`);
+      allFieldsSuccessful = false;
       continue;
     }
 
@@ -478,8 +540,29 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
 
     if (setElementValue(element, value)) {
       filledCount++;
+      
+      // Execute field's postAction if it exists
+      if (field.postAction) {
+        const actionSuccess = await executePostAction(field.postAction);
+        if (!actionSuccess) {
+          errors.push(`PostAction failed for field: ${field.matchType}="${field.selector}"`);
+        }
+      }
     } else {
       errors.push(`Failed to set value for: ${field.matchType}="${field.selector}"`);
+      allFieldsSuccessful = false;
+    }
+  }
+
+  // Execute rule-level postActions chain if all fields were successful
+  // Stop the chain if any action fails
+  if (allFieldsSuccessful && rule.postActions && rule.postActions.length > 0) {
+    for (const action of rule.postActions) {
+      const actionSuccess = await executePostAction(action);
+      if (!actionSuccess) {
+        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
+        break;
+      }
     }
   }
 
