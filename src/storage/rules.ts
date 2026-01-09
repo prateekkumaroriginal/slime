@@ -73,9 +73,33 @@ export async function updateRule(updatedRule: FillRule): Promise<void> {
   const rules = await getRules();
   const index = rules.findIndex((r) => r.id === updatedRule.id);
   if (index !== -1) {
+    const oldRule = rules[index];
+    const urlPatternChanged = oldRule.urlPattern !== updatedRule.urlPattern;
+
+    // Update the rule
     rules[index] = { ...updatedRule, updatedAt: Date.now() };
     await saveRules(rules);
+
+    // If urlPattern changed, update associated default mapping
+    if (urlPatternChanged) {
+      await syncDefaultMappingOnUrlPatternChange(updatedRule.id, updatedRule.urlPattern);
+    }
   }
+}
+
+// Sync default mapping when a rule's urlPattern changes
+async function syncDefaultMappingOnUrlPatternChange(ruleId: string, newPattern: string): Promise<void> {
+  const mappings = await getDefaultRuleMappings();
+  const mappingIndex = mappings.findIndex(m => m.ruleId === ruleId);
+
+  if (mappingIndex === -1) {
+    // No default mapping for this rule - nothing to update
+    return;
+  }
+
+  // Update the mapping's urlPattern to match the new rule pattern
+  mappings[mappingIndex] = { ...mappings[mappingIndex], urlPattern: newPattern };
+  await saveDefaultRuleMappings(mappings);
 }
 
 // Toggle rule enabled state
@@ -178,6 +202,18 @@ export async function permanentlyDeleteRule(id: string): Promise<void> {
   const rules = await getRules();
   const filtered = rules.filter((r) => r.id !== id);
   await saveRules(filtered);
+
+  // Also remove any default mapping for this rule
+  await removeDefaultMappingForRule(id);
+}
+
+// Remove default mapping for a rule (by ruleId)
+async function removeDefaultMappingForRule(ruleId: string): Promise<void> {
+  const mappings = await getDefaultRuleMappings();
+  const filtered = mappings.filter(m => m.ruleId !== ruleId);
+  if (filtered.length !== mappings.length) {
+    await saveDefaultRuleMappings(filtered);
+  }
 }
 
 // Generate a unique ID
@@ -390,7 +426,9 @@ export async function getDefaultRuleForUrl(url: string): Promise<{ rule: FillRul
   for (const mapping of mappings) {
     if (matchesUrl(mapping.urlPattern, url)) {
       const rule = rules.find((r) => r.id === mapping.ruleId);
-      if (rule && rule.enabled && !rule.isArchived) {
+      // Validate that the mapping's urlPattern still matches the rule's current urlPattern
+      // This filters out stale mappings where the rule's urlPattern was changed after setting as default
+      if (rule && rule.enabled && !rule.isArchived && rule.urlPattern === mapping.urlPattern) {
         matches.push({
           mapping,
           rule,
