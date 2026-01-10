@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { FillRule, StorageData, FABSettings, DefaultRuleMapping, DefaultRulesData } from '@/shared/types';
-import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS, FAB_SETTINGS_KEY, DEFAULT_RULES_KEY, DEFAULT_FAB_SETTINGS } from '@/shared/config';
+import type { FillRule, StorageData, FABSettings, DefaultRuleMapping, DefaultRulesData, StoredImage, ImageSettings, ImagesStorageData } from '@/shared/types';
+import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS, FAB_SETTINGS_KEY, DEFAULT_RULES_KEY, DEFAULT_FAB_SETTINGS, IMAGES_STORAGE_KEY, IMAGE_SETTINGS_KEY, DEFAULT_IMAGE_SETTINGS } from '@/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod Schema for Import Validation (with custom error messages)
@@ -18,8 +18,11 @@ const FieldMappingSchema = z.object({
   id: z.string({ message: 'Field id must be a string' }),
   selector: z.string({ message: 'Field selector must be a string' }),
   matchType: z.enum(['id', 'name', 'querySelector'], { message: 'matchType must be "id", "name", or "querySelector"' }),
-  valueType: z.enum(['static', 'template'], { message: 'valueType must be "static" or "template"' }),
+  valueType: z.enum(['static', 'template', 'title', 'desc', 'image'], { message: 'valueType must be "static", "template", "title", "desc", or "image"' }),
   value: z.string({ message: 'Field value must be a string' }),
+  minLength: z.number({ message: 'minLength must be a number' }).optional(),
+  maxLength: z.number({ message: 'maxLength must be a number' }).optional(),
+  imageId: z.string({ message: 'imageId must be a string' }).optional(),
   postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
 });
 
@@ -477,5 +480,127 @@ export async function isRuleDefaultForPattern(ruleId: string, urlPattern: string
 export async function getActiveDefaultRuleId(url: string): Promise<string | null> {
   const result = await getDefaultRuleForUrl(url);
   return result?.rule.id ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image Storage Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Get all stored images
+export async function getAllImages(): Promise<StoredImage[]> {
+  const result = await chrome.storage.local.get(IMAGES_STORAGE_KEY);
+  const data = result[IMAGES_STORAGE_KEY] as ImagesStorageData | undefined;
+  return data?.images ?? [];
+}
+
+// Save all images to storage
+async function saveAllImages(images: StoredImage[]): Promise<void> {
+  const data: ImagesStorageData = { images };
+  await chrome.storage.local.set({ [IMAGES_STORAGE_KEY]: data });
+}
+
+// Get a single image by ID
+export async function getImage(id: string): Promise<StoredImage | null> {
+  const images = await getAllImages();
+  return images.find((img) => img.id === id) ?? null;
+}
+
+// Save a new image (from File object)
+// Returns the image ID
+// Throws error if storage limit would be exceeded
+export async function saveImage(file: File): Promise<string> {
+  // Check if we can store this image
+  const canStore = await canStoreImage(file.size);
+  if (!canStore) {
+    throw new Error('Storage limit exceeded. Delete some images or increase the limit.');
+  }
+
+  // Convert file to base64 data URL
+  const dataUrl = await fileToDataUrl(file);
+
+  const newImage: StoredImage = {
+    id: generateId(),
+    name: file.name,
+    mimeType: file.type,
+    dataUrl,
+    size: file.size,
+    createdAt: Date.now(),
+  };
+
+  const images = await getAllImages();
+  images.push(newImage);
+  await saveAllImages(images);
+
+  return newImage.id;
+}
+
+// Save image directly from StoredImage object (used by service worker)
+export async function saveImageDirect(image: StoredImage): Promise<void> {
+  const images = await getAllImages();
+  images.push(image);
+  await saveAllImages(images);
+}
+
+// Delete an image by ID
+export async function deleteImage(id: string): Promise<void> {
+  const images = await getAllImages();
+  const filtered = images.filter((img) => img.id !== id);
+  await saveAllImages(filtered);
+}
+
+// Convert File to base64 data URL
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to read file as data URL'));
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image Settings Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Get image settings from storage
+export async function getImageSettings(): Promise<ImageSettings> {
+  const result = await chrome.storage.local.get(IMAGE_SETTINGS_KEY);
+  const stored = result[IMAGE_SETTINGS_KEY] as ImageSettings | undefined;
+  return stored ?? { ...DEFAULT_IMAGE_SETTINGS };
+}
+
+// Save image settings to storage
+export async function saveImageSettings(settings: ImageSettings): Promise<void> {
+  await chrome.storage.local.set({ [IMAGE_SETTINGS_KEY]: settings });
+}
+
+// Get current image storage usage
+export async function getImageStorageUsage(): Promise<{ used: number; limit: number }> {
+  const images = await getAllImages();
+  const settings = await getImageSettings();
+
+  const used = images.reduce((total, img) => total + img.size, 0);
+  return { used, limit: settings.maxStorageBytes };
+}
+
+// Check if a new image of given size can be stored
+export async function canStoreImage(fileSize: number): Promise<boolean> {
+  const { used, limit } = await getImageStorageUsage();
+  return used + fileSize <= limit;
+}
+
+// Format bytes to human-readable string (e.g., "2.4 MB")
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 

@@ -6,7 +6,7 @@
 export type MatchType = 'id' | 'name' | 'querySelector';
 
 // Value types for dynamic generation
-export type ValueType = 'static' | 'template' | 'title' | 'desc';
+export type ValueType = 'static' | 'template' | 'title' | 'desc' | 'image';
 
 // PostAction types for actions after field/rule completion
 export type PostActionType = 'click' | 'focus' | 'pressKey' | 'wait';
@@ -29,6 +29,7 @@ export interface FieldMapping {
   value: string; // Raw value or template string with {{placeholders}}
   minLength?: number; // Min characters for title/desc
   maxLength?: number; // Max characters for title/desc
+  imageId?: string; // Reference to stored image (when valueType is 'image')
   postActions?: PostAction[]; // Chain of actions to execute after this field fills successfully
 }
 
@@ -159,4 +160,70 @@ export type FABMessage =
   | GetRulesForUrlMessage
   | GetAllDefaultMappingsMessage
   | ResetFABPositionMessage;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image Storage Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Stored image data
+export interface StoredImage {
+  id: string;
+  name: string;        // Original filename
+  mimeType: string;    // e.g., "image/png", "image/jpeg"
+  dataUrl: string;     // Base64 data URL
+  size: number;        // File size in bytes
+  createdAt: number;
+}
+
+// Image storage settings (user-configurable)
+export interface ImageSettings {
+  maxStorageBytes: number;  // User-configurable limit (default: 10MB)
+}
+
+// Storage structure for images
+export interface ImagesStorageData {
+  images: StoredImage[];
+}
+
+// Image-related message types
+export interface GetImageMessage {
+  type: 'GET_IMAGE';
+  imageId: string;
+}
+
+export interface GetAllImagesMessage {
+  type: 'GET_ALL_IMAGES';
+}
+
+export interface SaveImageMessage {
+  type: 'SAVE_IMAGE';
+  image: StoredImage;
+}
+
+export interface DeleteImageMessage {
+  type: 'DELETE_IMAGE';
+  imageId: string;
+}
+
+export interface GetImageSettingsMessage {
+  type: 'GET_IMAGE_SETTINGS';
+}
+
+export interface SaveImageSettingsMessage {
+  type: 'SAVE_IMAGE_SETTINGS';
+  settings: ImageSettings;
+}
+
+export interface GetImageStorageUsageMessage {
+  type: 'GET_IMAGE_STORAGE_USAGE';
+}
+
+export type ImageMessage =
+  | GetImageMessage
+  | GetAllImagesMessage
+  | SaveImageMessage
+  | DeleteImageMessage
+  | GetImageSettingsMessage
+  | SaveImageSettingsMessage
+  | GetImageStorageUsageMessage;
 
