@@ -541,11 +541,14 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
     if (setElementValue(element, value)) {
       filledCount++;
       
-      // Execute field's postAction if it exists
-      if (field.postAction) {
-        const actionSuccess = await executePostAction(field.postAction);
-        if (!actionSuccess) {
-          errors.push(`PostAction failed for field: ${field.matchType}="${field.selector}"`);
+      // Execute field's postActions chain if it exists
+      if (field.postActions && field.postActions.length > 0) {
+        for (const action of field.postActions) {
+          const actionSuccess = await executePostAction(action);
+          if (!actionSuccess) {
+            errors.push(`Field PostAction chain stopped: ${action.type} failed for field: ${field.matchType}="${field.selector}"`);
+            break;
+          }
         }
       }
     } else {

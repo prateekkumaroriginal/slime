@@ -20,7 +20,7 @@ const FieldMappingSchema = z.object({
   matchType: z.enum(['id', 'name', 'querySelector'], { message: 'matchType must be "id", "name", or "querySelector"' }),
   valueType: z.enum(['static', 'template'], { message: 'valueType must be "static" or "template"' }),
   value: z.string({ message: 'Field value must be a string' }),
-  postAction: PostActionSchema.optional(),
+  postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
 });
 
 const FillRuleSchema = z.object({

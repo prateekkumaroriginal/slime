@@ -29,7 +29,7 @@ export interface FieldMapping {
   value: string; // Raw value or template string with {{placeholders}}
   minLength?: number; // Min characters for title/desc
   maxLength?: number; // Max characters for title/desc
-  postAction?: PostAction; // Optional action to execute after this field fills successfully
+  postActions?: PostAction[]; // Chain of actions to execute after this field fills successfully
 }
 
 // A fill rule configuration
