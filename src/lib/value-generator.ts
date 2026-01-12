@@ -114,10 +114,6 @@ function constrainLength(text: string, minLen?: number, maxLen?: number, generat
       result = result.slice(0, lastSpace);
     }
     result = result.trimEnd();
-    // Add ellipsis if we truncated mid-content
-    if (result.length < text.length && !result.endsWith('.')) {
-      result = result.replace(/[,;:]$/, '') + '...';
-    }
   }
   
   return result;

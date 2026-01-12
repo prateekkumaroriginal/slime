@@ -8,6 +8,10 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 - **Flexible field matching** — Match input fields by ID, Name, or Query Selector (with regex support)
 - **Dynamic templates** — Use placeholders for auto-incrementing numbers, random strings, dates, and more
 - **Smart content generation** — Generate realistic titles and descriptions for textareas
+- **Image fill support** — Store images and auto-fill file inputs with them
+- **Post-actions** — Chain actions (click, focus, key press, wait) after filling fields or completing rules
+- **Floating Action Button (FAB)** — Quick-access button on pages with configurable position and keyboard shortcut
+- **Default rules** — Set a default rule per URL pattern for one-click filling via FAB
 - **Multiple rules** — Create different fill profiles (e.g., Admin, User, Tester) and switch between them
 - **URL patterns** — Rules can be scoped to specific sites or apply globally
 - **Rule management** — Archive, restore, import/export, and duplicate rules
@@ -125,6 +129,35 @@ Generates Lorem Ipsum paragraphs. Perfect for textareas, bio fields, comments, a
 - Optional min/max character limits
 - Example: *"Voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis."*
 
+### Image
+Fill file input fields with stored images. Perfect for avatar uploads, document submissions, and image forms.
+
+- Store images in the extension's Image Storage (accessible from options page)
+- Select a stored image to use when the field is filled
+- Supports common formats: PNG, JPEG, GIF, WebP
+
+## Post-Actions
+
+Chain actions to execute after a field fills or after all fields in a rule complete. Useful for triggering form submissions, navigating to next fields, or waiting for async operations.
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| Click | Click an element | CSS selector |
+| Focus | Focus an element | CSS selector |
+| Press Key | Simulate key press | Key name (Enter, Tab, Escape, etc.) |
+| Wait | Delay before next action | Duration in milliseconds |
+
+**Example:** After filling a search field, press Enter to submit, then wait 500ms for results.
+
+## Floating Action Button (FAB)
+
+A draggable button that appears on web pages for quick form filling.
+
+- **Enable/disable** from the options page under "Action Button"
+- **Drag to reposition** anywhere on the screen
+- **Keyboard shortcut** — Default: `Ctrl+Q` (configurable)
+- **Set default rules** — Assign a default rule per URL pattern for one-click filling
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -132,6 +165,7 @@ Generates Lorem Ipsum paragraphs. Perfect for textareas, bio fields, comments, a
 | `Ctrl+Enter` | Save rule |
 | `Escape` | Cancel / Close sidebar |
 | `Ctrl+I` | Toggle syntax help |
+| `Ctrl+Q` | Trigger FAB (fill with default rule) — configurable |
 
 ## Development
 
