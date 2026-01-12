@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
-import { Plus, Trash2, Archive, RefreshCcw, ChevronDown, ChevronRight, Grip } from 'lucide-react';
+import { Plus, Trash2, Archive, RefreshCcw, ChevronDown, ChevronRight, Grip, Upload, X } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { FillRule, FieldMapping, MatchType, ValueType, PostAction, PostActionType } from '@/shared/types';
-import { generateId } from '@/storage/rules';
+import type { FillRule, FieldMapping, MatchType, ValueType, PostAction, PostActionType, StoredImage } from '@/shared/types';
+import { generateId, getAllImages, saveImage, getImage, canStoreImage, formatBytes, getImageStorageUsage } from '@/storage/rules';
 import { Button, Input, Select, Checkbox, Card } from '@/components';
 
 interface RuleFormProps {
@@ -280,6 +280,7 @@ const valueTypeOptions = [
   { value: 'template', label: 'Template' },
   { value: 'title', label: 'Title' },
   { value: 'desc', label: 'Description' },
+  { value: 'image', label: 'Image' },
 ];
 
 const keyOptions = [
@@ -320,6 +321,28 @@ function generatePlaceholderValue(valueType: ValueType, minLength?: number, maxL
 
 function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
   const [postActionsExpanded, setPostActionsExpanded] = useState(!!(field.postActions && field.postActions.length > 0));
+  const [selectedImage, setSelectedImage] = useState<StoredImage | null>(null);
+  const [allImages, setAllImages] = useState<StoredImage[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load images when component mounts or when field.imageId changes
+  useEffect(() => {
+    async function loadImages() {
+      const images = await getAllImages();
+      setAllImages(images);
+      
+      // Load selected image if imageId is set
+      if (field.imageId) {
+        const img = await getImage(field.imageId);
+        setSelectedImage(img);
+      } else {
+        setSelectedImage(null);
+      }
+    }
+    loadImages();
+  }, [field.imageId]);
 
   // Drag and drop sensors for field-level postActions
   const fieldSensors = useSensors(
@@ -332,11 +355,65 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
     if (newType === 'title' || newType === 'desc') {
       // Auto-generate placeholder syntax
       const value = generatePlaceholderValue(newType, field.minLength, field.maxLength);
-      onUpdate({ valueType: newType, value });
-    } else {
-      // Clear min/max when switching to static/template
+      onUpdate({ valueType: newType, value, imageId: undefined });
+    } else if (newType === 'image') {
+      // Clear value and set image type
       onUpdate({ valueType: newType, value: '', minLength: undefined, maxLength: undefined });
+    } else {
+      // Clear min/max and imageId when switching to static/template
+      onUpdate({ valueType: newType, value: '', minLength: undefined, maxLength: undefined, imageId: undefined });
     }
+  }
+
+  // Handle image file upload
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select an image file');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      // Check storage limit
+      const canStore = await canStoreImage(file.size);
+      if (!canStore) {
+        const { used, limit } = await getImageStorageUsage();
+        setUploadError(`Storage limit exceeded (${formatBytes(used)} / ${formatBytes(limit)}). Delete some images or increase the limit in settings.`);
+        return;
+      }
+
+      const imageId = await saveImage(file);
+      onUpdate({ imageId });
+      
+      // Refresh images list
+      const images = await getAllImages();
+      setAllImages(images);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  // Handle selecting an existing image
+  function handleSelectExistingImage(imageId: string) {
+    onUpdate({ imageId });
+  }
+
+  // Handle clearing the selected image
+  function handleClearImage() {
+    onUpdate({ imageId: undefined });
+    setSelectedImage(null);
   }
 
   // Handle min/max changes for title/desc
@@ -379,6 +456,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
   }
 
   const isContentType = field.valueType === 'title' || field.valueType === 'desc';
+  const isImageType = field.valueType === 'image';
 
   return (
     <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700">
@@ -427,7 +505,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
           />
         </div>
 
-        {/* Row 2: Value input or Min/Max inputs */}
+        {/* Row 2: Value input, Min/Max inputs, or Image selector */}
         {isContentType ? (
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -458,6 +536,88 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
                 className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
+          </div>
+        ) : isImageType ? (
+          <div className="space-y-3">
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Image</label>
+            
+            {/* Selected image preview */}
+            {selectedImage ? (
+              <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-600 rounded-lg">
+                <img 
+                  src={selectedImage.dataUrl} 
+                  alt={selectedImage.name}
+                  className="w-12 h-12 object-cover rounded border border-zinc-600"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-zinc-200 truncate">{selectedImage.name}</p>
+                  <p className="text-xs text-zinc-500">{formatBytes(selectedImage.size)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearImage}
+                  className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                  title="Remove image"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Upload new image */}
+                <div 
+                  className="relative border-2 border-dashed border-zinc-600 rounded-lg p-4 hover:border-emerald-500 transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    {isUploading ? (
+                      <div className="w-6 h-6 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="w-6 h-6 text-zinc-400" />
+                    )}
+                    <span className="text-sm text-zinc-400">
+                      {isUploading ? 'Uploading...' : 'Click to upload image'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Error message */}
+                {uploadError && (
+                  <p className="text-xs text-red-400">{uploadError}</p>
+                )}
+
+                {/* Select from existing images */}
+                {allImages.length > 0 && (
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-2">Or select from library:</p>
+                    <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+                      {allImages.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => handleSelectExistingImage(img.id)}
+                          className="relative group"
+                          title={`${img.name} (${formatBytes(img.size)})`}
+                        >
+                          <img 
+                            src={img.dataUrl} 
+                            alt={img.name}
+                            className="w-10 h-10 object-cover rounded border border-zinc-600 hover:border-emerald-500 transition-colors"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div>

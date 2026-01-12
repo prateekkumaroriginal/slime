@@ -1,4 +1,4 @@
-import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction } from '@/shared/types';
+import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -518,6 +518,54 @@ function setElementValue(
   }
 }
 
+// Set file input value using DataTransfer API
+async function setFileInputValue(
+  element: HTMLInputElement,
+  imageData: StoredImage
+): Promise<boolean> {
+  try {
+    // Verify this is a file input
+    if (element.type.toLowerCase() !== 'file') {
+      return false;
+    }
+
+    // Convert data URL to blob
+    const response = await fetch(imageData.dataUrl);
+    const blob = await response.blob();
+    
+    // Create File object
+    const file = new File([blob], imageData.name, { type: imageData.mimeType });
+    
+    // Use DataTransfer API to set files
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    element.files = dataTransfer.files;
+    
+    // Dispatch events to trigger any listeners
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    return true;
+  } catch (error) {
+    console.error('[Slime] Failed to set file input:', error);
+    return false;
+  }
+}
+
+// Get image data from background script
+async function getImageFromBackground(imageId: string): Promise<StoredImage | null> {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_IMAGE',
+      imageId,
+    });
+    return response?.image ?? null;
+  } catch (error) {
+    console.error('[Slime] Failed to get image from background:', error);
+    return null;
+  }
+}
+
 // Fill form fields based on a rule
 async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: string[] }> {
   let filledCount = 0;
@@ -534,11 +582,41 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
       continue;
     }
 
-    // Generate value (handles templates)
-    const { value, newIncrement } = generateValue(field.value, currentIncrement);
-    currentIncrement = newIncrement;
+    let fillSuccess = false;
 
-    if (setElementValue(element, value)) {
+    // Handle image type fields
+    if (field.valueType === 'image' && field.imageId) {
+      if (element instanceof HTMLInputElement && element.type.toLowerCase() === 'file') {
+        // Get image data from background
+        const imageData = await getImageFromBackground(field.imageId);
+        if (imageData) {
+          fillSuccess = await setFileInputValue(element, imageData);
+          if (!fillSuccess) {
+            errors.push(`Failed to set file input for: ${field.matchType}="${field.selector}"`);
+            allFieldsSuccessful = false;
+          }
+        } else {
+          errors.push(`Image not found for: ${field.matchType}="${field.selector}"`);
+          allFieldsSuccessful = false;
+        }
+      } else {
+        errors.push(`Element is not a file input: ${field.matchType}="${field.selector}"`);
+        allFieldsSuccessful = false;
+      }
+    } else {
+      // Handle other value types (static, template, title, desc)
+      // Generate value (handles templates)
+      const { value, newIncrement } = generateValue(field.value, currentIncrement);
+      currentIncrement = newIncrement;
+
+      fillSuccess = setElementValue(element, value);
+      if (!fillSuccess) {
+        errors.push(`Failed to set value for: ${field.matchType}="${field.selector}"`);
+        allFieldsSuccessful = false;
+      }
+    }
+
+    if (fillSuccess) {
       filledCount++;
       
       // Execute field's postActions chain if it exists
@@ -551,9 +629,6 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
           }
         }
       }
-    } else {
-      errors.push(`Failed to set value for: ${field.matchType}="${field.selector}"`);
-      allFieldsSuccessful = false;
     }
   }
 

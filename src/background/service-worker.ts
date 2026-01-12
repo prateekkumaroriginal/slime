@@ -10,7 +10,8 @@ import {
   getRulesForUrl,
   getActiveDefaultRuleId,
   getDefaultRuleMappings,
-  getRules
+  getRules,
+  getImage
 } from '@/storage/rules';
 import type { FABSettings, DefaultRuleMapping, FillRule } from '@/shared/types';
 
@@ -68,6 +69,11 @@ interface OpenOptionsRequest {
   type: 'OPEN_OPTIONS';
 }
 
+interface GetImageRequest {
+  type: 'GET_IMAGE';
+  imageId: string;
+}
+
 type ServiceWorkerMessage = 
   | FillFormRequest 
   | UpdateIncrementRequest
@@ -79,7 +85,8 @@ type ServiceWorkerMessage =
   | RemoveDefaultRuleRequest
   | GetRulesForUrlRequest
   | GetAllDefaultMappingsRequest
-  | OpenOptionsRequest;
+  | OpenOptionsRequest
+  | GetImageRequest;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, _sender, sendResponse) => {
@@ -127,6 +134,10 @@ chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, _sender, se
     case 'OPEN_OPTIONS':
       chrome.runtime.openOptionsPage();
       return false;
+
+    case 'GET_IMAGE':
+      handleGetImage(message.imageId, sendResponse);
+      return true;
 
     default:
       return false;
@@ -304,6 +315,17 @@ async function handleGetAllDefaultMappings(sendResponse: (response: unknown) => 
   } catch (error) {
     console.error('[Slime] Failed to get default mappings:', error);
     sendResponse({ mappings: [], error: String(error) });
+  }
+}
+
+// Handle get image request from content script
+async function handleGetImage(imageId: string, sendResponse: (response: unknown) => void) {
+  try {
+    const image = await getImage(imageId);
+    sendResponse({ image });
+  } catch (error) {
+    console.error('[Slime] Failed to get image:', error);
+    sendResponse({ image: null, error: String(error) });
   }
 }
 

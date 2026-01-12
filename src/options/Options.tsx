@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, FileText, Download, Upload, Menu, Zap } from 'lucide-react';
+import { Plus, FileText, Download, Upload, Menu, Zap, HardDrive } from 'lucide-react';
 import type { FillRule, DefaultRuleMapping } from '@/shared/types';
 import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl } from '@/storage/rules';
 import { Button, Card } from '@/components';
@@ -8,6 +8,7 @@ import RuleList from './components/RuleList';
 import SyntaxHelp from './components/SyntaxHelp';
 import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
 import FabConfig from './components/FabConfig';
+import ImageStorageConfig from './components/ImageStorageConfig';
 
 export default function Options() {
   const [rules, setRules] = useState<FillRule[]>([]);
@@ -17,6 +18,7 @@ export default function Options() {
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [isArchivedSidebarOpen, setIsArchivedSidebarOpen] = useState(false);
   const [showFabConfig, setShowFabConfig] = useState(false);
+  const [showImageStorage, setShowImageStorage] = useState(false);
   const [defaultMappings, setDefaultMappings] = useState<DefaultRuleMapping[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -221,7 +223,9 @@ export default function Options() {
           <p className="text-zinc-400 mt-2">Manage your form filling rules and field mappings</p>
         </header>
 
-        {showFabConfig ? (
+        {showImageStorage ? (
+          <ImageStorageConfig onBack={() => setShowImageStorage(false)} />
+        ) : showFabConfig ? (
           <FabConfig onBack={() => setShowFabConfig(false)} />
         ) : editingRule ? (
           <RuleForm
@@ -243,6 +247,10 @@ export default function Options() {
                 <Button variant="secondary" onClick={() => setShowFabConfig(true)}>
                   <Zap className="w-4 h-4" />
                   Action Button
+                </Button>
+                <Button variant="secondary" onClick={() => setShowImageStorage(true)}>
+                  <HardDrive className="w-4 h-4" />
+                  Image Storage
                 </Button>
                 <Button variant="secondary" onClick={handleExport}>
                   <Upload className="w-4 h-4" />
