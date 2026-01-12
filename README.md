@@ -22,7 +22,7 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 
 1. **Download the latest release**
    
-   [**Download slime-v1.0.0.zip**](https://github.com/prateekkumaroriginal/slime/releases/download/v1.0.0/slime-v1.0.0.zip)
+   [**Download slime-v2.0.0.zip**](https://github.com/prateekkumaroriginal/slime/releases/download/v2.0.0/slime.zip)
 
 2. **Extract the zip** to a folder on your computer
 
