@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Plus, FileText, Download, Upload, Menu, Zap, HardDrive } from 'lucide-react';
 import type { FillRule, DefaultRuleMapping } from '@/shared/types';
-import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl } from '@/storage/rules';
+import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl, getRule } from '@/storage/rules';
+import { useHashRoute } from '@/lib/use-hash-route';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -11,14 +12,13 @@ import FabConfig from './components/FabConfig';
 import ImageStorageConfig from './components/ImageStorageConfig';
 
 export default function Options() {
+  const { route, navigate } = useHashRoute();
   const [rules, setRules] = useState<FillRule[]>([]);
   const [archivedRules, setArchivedRules] = useState<FillRule[]>([]);
   const [editingRule, setEditingRule] = useState<FillRule | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [loadingRule, setLoadingRule] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
   const [isArchivedSidebarOpen, setIsArchivedSidebarOpen] = useState(false);
-  const [showFabConfig, setShowFabConfig] = useState(false);
-  const [showImageStorage, setShowImageStorage] = useState(false);
   const [defaultMappings, setDefaultMappings] = useState<DefaultRuleMapping[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +39,35 @@ export default function Options() {
     setDefaultMappings(mappings);
   }
 
+  const loadRuleForEdit = useCallback(async (ruleId: string) => {
+    setLoadingRule(true);
+    try {
+      const rule = await getRule(ruleId);
+      if (rule) {
+        setEditingRule({ ...rule });
+      } else {
+        // Rule not found, redirect to list
+        navigate({ view: 'list' });
+      }
+    } catch (error) {
+      console.error('Failed to load rule:', error);
+      navigate({ view: 'list' });
+    } finally {
+      setLoadingRule(false);
+    }
+  }, [navigate]);
+
+  // Load rule when route changes to edit/{ruleId}
+  useEffect(() => {
+    if (route.view === 'edit') {
+      loadRuleForEdit(route.ruleId);
+    } else if (route.view === 'create') {
+      setEditingRule(createEmptyRule());
+    } else {
+      setEditingRule(null);
+    }
+  }, [route, loadRuleForEdit]);
+
   async function handleSetDefault(rule: FillRule) {
     if (confirm(`Set "${rule.name}" as default for URL pattern: ${rule.urlPattern}?`)) {
       await setDefaultRuleForUrl(rule.urlPattern, rule.id);
@@ -54,32 +83,29 @@ export default function Options() {
   }
 
   function handleCreate() {
-    setEditingRule(createEmptyRule());
-    setIsCreating(true);
+    navigate({ view: 'create' });
   }
 
   function handleEdit(rule: FillRule) {
-    setEditingRule({ ...rule });
-    setIsCreating(false);
+    navigate({ view: 'edit', ruleId: rule.id });
     if (isArchivedSidebarOpen) {
       setIsArchivedSidebarOpen(false);
     }
   }
 
   async function handleSave(rule: FillRule) {
+    const isCreating = route.view === 'create';
     if (isCreating) {
       await addRule(rule);
     } else {
       await updateRule(rule);
     }
     await loadRules();
-    setEditingRule(null);
-    setIsCreating(false);
+    navigate({ view: 'list' });
   }
 
   function handleCancel() {
-    setEditingRule(null);
-    setIsCreating(false);
+    navigate({ view: 'list' });
   }
 
   async function handleArchive(id: string) {
@@ -223,32 +249,38 @@ export default function Options() {
           <p className="text-zinc-400 mt-2">Manage your form filling rules and field mappings</p>
         </header>
 
-        {showImageStorage ? (
-          <ImageStorageConfig onBack={() => setShowImageStorage(false)} />
-        ) : showFabConfig ? (
-          <FabConfig onBack={() => setShowFabConfig(false)} />
-        ) : editingRule ? (
-          <RuleForm
-            rule={editingRule}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            isNew={isCreating}
-            isHelpOpen={showSyntaxHelp}
-            isArchivedSidebarOpen={isArchivedSidebarOpen}
-            onArchive={handleArchive}
-            onRestore={handleRestore}
-            onPermanentDelete={handlePermanentDelete}
-          />
+        {route.view === 'image-storage' ? (
+          <ImageStorageConfig onBack={() => navigate({ view: 'list' })} />
+        ) : route.view === 'action-button' ? (
+          <FabConfig onBack={() => navigate({ view: 'list' })} />
+        ) : editingRule && (route.view === 'create' || route.view === 'edit') ? (
+          loadingRule ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <RuleForm
+              rule={editingRule}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              isNew={route.view === 'create'}
+              isHelpOpen={showSyntaxHelp}
+              isArchivedSidebarOpen={isArchivedSidebarOpen}
+              onArchive={handleArchive}
+              onRestore={handleRestore}
+              onPermanentDelete={handlePermanentDelete}
+            />
+          )
         ) : (
           <>
             <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="secondary" onClick={() => setShowFabConfig(true)}>
+                <Button variant="secondary" onClick={() => navigate({ view: 'action-button' })}>
                   <Zap className="w-4 h-4" />
                   Action Button
                 </Button>
-                <Button variant="secondary" onClick={() => setShowImageStorage(true)}>
+                <Button variant="secondary" onClick={() => navigate({ view: 'image-storage' })}>
                   <HardDrive className="w-4 h-4" />
                   Image Storage
                 </Button>
