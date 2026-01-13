@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Plus, FileText, Download, Upload, Menu, Zap, HardDrive } from 'lucide-react';
 import type { FillRule, DefaultRuleMapping } from '@/shared/types';
 import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl, getRule } from '@/storage/rules';
-import { useHashRoute } from '@/lib/use-hash-route';
+import { Routes, Route, useRoute, useNavigate } from '@/lib/hash-router';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
@@ -11,8 +11,9 @@ import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
 import FabConfig from './components/FabConfig';
 import ImageStorageConfig from './components/ImageStorageConfig';
 
-export default function Options() {
-  const { route, navigate } = useHashRoute();
+function OptionsContent() {
+  const navigate = useNavigate();
+  const { route } = useRoute();
   const [rules, setRules] = useState<FillRule[]>([]);
   const [archivedRules, setArchivedRules] = useState<FillRule[]>([]);
   const [editingRule, setEditingRule] = useState<FillRule | null>(null);
@@ -47,11 +48,11 @@ export default function Options() {
         setEditingRule({ ...rule });
       } else {
         // Rule not found, redirect to list
-        navigate({ view: 'list' });
+        navigate('');
       }
     } catch (error) {
       console.error('Failed to load rule:', error);
-      navigate({ view: 'list' });
+      navigate('');
     } finally {
       setLoadingRule(false);
     }
@@ -83,11 +84,11 @@ export default function Options() {
   }
 
   function handleCreate() {
-    navigate({ view: 'create' });
+    navigate('create');
   }
 
   function handleEdit(rule: FillRule) {
-    navigate({ view: 'edit', ruleId: rule.id });
+    navigate(`edit/${rule.id}`);
     if (isArchivedSidebarOpen) {
       setIsArchivedSidebarOpen(false);
     }
@@ -101,11 +102,11 @@ export default function Options() {
       await updateRule(rule);
     }
     await loadRules();
-    navigate({ view: 'list' });
+    navigate('');
   }
 
   function handleCancel() {
-    navigate({ view: 'list' });
+    navigate('');
   }
 
   async function handleArchive(id: string) {
@@ -249,88 +250,119 @@ export default function Options() {
           <p className="text-zinc-400 mt-2">Manage your form filling rules and field mappings</p>
         </header>
 
-        {route.view === 'image-storage' ? (
-          <ImageStorageConfig onBack={() => navigate({ view: 'list' })} />
-        ) : route.view === 'action-button' ? (
-          <FabConfig onBack={() => navigate({ view: 'list' })} />
-        ) : editingRule && (route.view === 'create' || route.view === 'edit') ? (
-          loadingRule ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <RuleForm
-              rule={editingRule}
-              onSave={handleSave}
-              onCancel={handleCancel}
-              isNew={route.view === 'create'}
-              isHelpOpen={showSyntaxHelp}
-              isArchivedSidebarOpen={isArchivedSidebarOpen}
-              onArchive={handleArchive}
-              onRestore={handleRestore}
-              onPermanentDelete={handlePermanentDelete}
-            />
-          )
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="secondary" onClick={() => navigate({ view: 'action-button' })}>
-                  <Zap className="w-4 h-4" />
-                  Action Button
-                </Button>
-                <Button variant="secondary" onClick={() => navigate({ view: 'image-storage' })}>
-                  <HardDrive className="w-4 h-4" />
-                  Image Storage
-                </Button>
-                <Button variant="secondary" onClick={handleExport}>
-                  <Upload className="w-4 h-4" />
-                  Export
-                </Button>
-                <Button variant="secondary" onClick={handleImportClick}>
-                  <Download className="w-4 h-4" />
-                  Import
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json"
-                  style={{ display: 'none' }}
-                  onChange={handleImportFile}
+        <Routes>
+          <Route
+            path="image-storage"
+            element={<ImageStorageConfig onBack={() => navigate('')} />}
+          />
+          <Route
+            path="action-button"
+            element={<FabConfig onBack={() => navigate('')} />}
+          />
+          <Route
+            path="create"
+            element={
+              editingRule ? (
+                <RuleForm
+                  rule={editingRule}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  isNew={true}
+                  isHelpOpen={showSyntaxHelp}
+                  isArchivedSidebarOpen={isArchivedSidebarOpen}
+                  onArchive={handleArchive}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
                 />
-                <Button onClick={handleCreate}>
-                  <Plus className="w-5 h-5" />
-                  New Rule
-                </Button>
-              </div>
-            </div>
-
-            {rules.length === 0 ? (
-              <Card className="items-center text-center py-16">
-                <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center">
-                  <FileText className="w-8 h-8 text-zinc-500" />
+              ) : null
+            }
+          />
+          <Route
+            path="edit/:ruleId"
+            element={
+              loadingRule ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
                 </div>
-                <h3 className="text-lg font-medium text-zinc-300">No rules yet</h3>
-                <p className="text-zinc-500 -mt-2">Create your first rule to start auto-filling forms</p>
-                <Button onClick={handleCreate}>Create Rule</Button>
-              </Card>
-            ) : (
-              <RuleList
-                rules={rules}
-                onEdit={handleEdit}
-                onArchive={handleArchive}
-                onResetIncrement={handleResetIncrement}
-                onDuplicate={handleDuplicate}
-                onToggle={handleToggle}
-                onExport={handleExportSingle}
-                defaultMappings={defaultMappings}
-                onSetDefault={handleSetDefault}
-                onRemoveDefault={handleRemoveDefault}
-              />
-            )}
-          </>
-        )}
+              ) : editingRule ? (
+                <RuleForm
+                  rule={editingRule}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  isNew={false}
+                  isHelpOpen={showSyntaxHelp}
+                  isArchivedSidebarOpen={isArchivedSidebarOpen}
+                  onArchive={handleArchive}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
+                />
+              ) : null
+            }
+          />
+          <Route
+            path=""
+            element={
+              <>
+                <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="secondary" onClick={() => navigate('action-button')}>
+                      <Zap className="w-4 h-4" />
+                      Action Button
+                    </Button>
+                    <Button variant="secondary" onClick={() => navigate('image-storage')}>
+                      <HardDrive className="w-4 h-4" />
+                      Image Storage
+                    </Button>
+                    <Button variant="secondary" onClick={handleExport}>
+                      <Upload className="w-4 h-4" />
+                      Export
+                    </Button>
+                    <Button variant="secondary" onClick={handleImportClick}>
+                      <Download className="w-4 h-4" />
+                      Import
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      style={{ display: 'none' }}
+                      onChange={handleImportFile}
+                    />
+                    <Button onClick={handleCreate}>
+                      <Plus className="w-5 h-5" />
+                      New Rule
+                    </Button>
+                  </div>
+                </div>
+
+                {rules.length === 0 ? (
+                  <Card className="items-center text-center py-16">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-zinc-800 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-zinc-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-zinc-300">No rules yet</h3>
+                    <p className="text-zinc-500 -mt-2">Create your first rule to start auto-filling forms</p>
+                    <Button onClick={handleCreate}>Create Rule</Button>
+                  </Card>
+                ) : (
+                  <RuleList
+                    rules={rules}
+                    onEdit={handleEdit}
+                    onArchive={handleArchive}
+                    onResetIncrement={handleResetIncrement}
+                    onDuplicate={handleDuplicate}
+                    onToggle={handleToggle}
+                    onExport={handleExportSingle}
+                    defaultMappings={defaultMappings}
+                    onSetDefault={handleSetDefault}
+                    onRemoveDefault={handleRemoveDefault}
+                  />
+                )}
+              </>
+            }
+        />
+        </Routes>
       </div>
 
       <SyntaxHelp isOpen={showSyntaxHelp && !isArchivedSidebarOpen} onToggle={handleToggleSyntaxHelp} canOpen={!isArchivedSidebarOpen} />
@@ -344,5 +376,13 @@ export default function Options() {
         onExport={handleExportSingle}
       />
     </div>
+  );
+}
+
+export default function Options() {
+  return (
+    <Routes>
+      <OptionsContent />
+    </Routes>
   );
 }

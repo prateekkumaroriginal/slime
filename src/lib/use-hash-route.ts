@@ -7,66 +7,63 @@ export type Route =
   | { view: 'action-button' }
   | { view: 'image-storage' };
 
-function parseHash(hash: string): Route {
-  // Remove leading # if present
-  const cleanHash = hash.replace(/^#/, '');
+export function parsePath(path: string): Route {
+  const cleanPath = path.replace(/^#/, '');
 
-  if (!cleanHash) {
+  if (!cleanPath || cleanPath === '/') {
     return { view: 'list' };
   }
 
-  // Parse routes
-  if (cleanHash === 'create') {
+  if (cleanPath === 'create') {
     return { view: 'create' };
   }
 
-  if (cleanHash === 'action-button') {
+  if (cleanPath === 'action-button') {
     return { view: 'action-button' };
   }
 
-  if (cleanHash === 'image-storage') {
+  if (cleanPath === 'image-storage') {
     return { view: 'image-storage' };
   }
 
-  // Parse edit route: edit/{ruleId}
-  const editMatch = cleanHash.match(/^edit\/(.+)$/);
+  const editMatch = cleanPath.match(/^edit\/(.+)$/);
   if (editMatch) {
     return { view: 'edit', ruleId: editMatch[1] };
   }
 
-  // Unknown route, default to list
   return { view: 'list' };
 }
 
-function toHash(route: Route): string {
+export function routeToPath(route: Route): string {
   switch (route.view) {
     case 'list':
       return '';
     case 'create':
-      return '#create';
+      return 'create';
     case 'edit':
-      return `#edit/${route.ruleId}`;
+      return `edit/${route.ruleId}`;
     case 'action-button':
-      return '#action-button';
+      return 'action-button';
     case 'image-storage':
-      return '#image-storage';
+      return 'image-storage';
   }
 }
 
+function toHash(route: Route): string {
+  const path = routeToPath(route);
+  return path ? `#${path}` : '';
+}
+
 export function useHashRoute() {
-  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+  const [route, setRoute] = useState<Route>(() => parsePath(window.location.hash));
 
   useEffect(() => {
     function handleHashChange() {
-      setRoute(parseHash(window.location.hash));
+      setRoute(parsePath(window.location.hash));
     }
 
-    // Listen for hash changes (browser back/forward)
     window.addEventListener('hashchange', handleHashChange);
-
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const navigate = useCallback((newRoute: Route) => {
