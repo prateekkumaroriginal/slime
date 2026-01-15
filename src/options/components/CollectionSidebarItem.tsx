@@ -113,31 +113,34 @@ export default function CollectionSidebarItem({
 
       {/* Action buttons - shown on hover (export, edit, delete) */}
       <div className="hidden group-hover:flex items-center">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={(e) => { e.stopPropagation(); onExport(); }}
           title="Export"
-          className="p-1.5 rounded-lg text-zinc-500 hover:text-violet-400 hover:bg-violet-500/20 transition-colors"
+          className="text-zinc-500 hover:text-violet-400 hover:bg-violet-500/20"
         >
           <Upload className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
           title="Rename"
-          className="p-1.5 rounded-lg text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          className="text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/20"
         >
           <SquarePen className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           disabled={isDeleting}
           title="Delete"
-          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+          className="text-zinc-500 hover:text-red-400 hover:bg-red-500/20"
         >
           <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        </Button>
       </div>
     </Button>
   );
