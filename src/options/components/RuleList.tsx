@@ -1,9 +1,11 @@
-import { Copy, RotateCcw, SquarePen, Archive, Upload, Star } from 'lucide-react';
-import type { FillRule, DefaultRuleMapping } from '@/shared/types';
+import { Copy, RotateCcw, SquarePen, Archive, Upload, Star, Folder } from 'lucide-react';
+import type { FillRule, DefaultRuleMapping, Collection } from '@/shared/types';
 import { Button, Switch } from '@/components';
 
 interface RuleListProps {
   rules: FillRule[];
+  collections?: Collection[];
+  selectedCollectionId?: string | null;
   onEdit: (rule: FillRule) => void;
   onArchive: (id: string) => void;
   onResetIncrement: (id: string) => void;
@@ -17,6 +19,8 @@ interface RuleListProps {
 
 export default function RuleList({ 
   rules, 
+  collections = [],
+  selectedCollectionId = null,
   onEdit, 
   onArchive, 
   onResetIncrement, 
@@ -30,6 +34,15 @@ export default function RuleList({
   // Check if a rule is set as default for its URL pattern
   function isDefaultForPattern(rule: FillRule): boolean {
     return defaultMappings.some(m => m.urlPattern === rule.urlPattern && m.ruleId === rule.id);
+  }
+
+  // Get collection name for a rule
+  function getCollectionName(rule: FillRule): string {
+    if (!rule.collectionId) {
+      return 'Default';
+    }
+    const collection = collections.find(c => c.id === rule.collectionId);
+    return collection?.name || 'Unknown';
   }
   return (
     <div className="space-y-3">
@@ -116,6 +129,12 @@ export default function RuleList({
             <div className="flex items-center gap-4 text-xs text-zinc-500">
               <span>{rule.fields.length} field(s)</span>
               <span>Counter: {rule.incrementCounter}</span>
+              {selectedCollectionId === null && (
+                <span className="flex items-center gap-1">
+                  <Folder className="w-3 h-3" />
+                  {getCollectionName(rule)}
+                </span>
+              )}
             </div>
           </div>
         </div>
