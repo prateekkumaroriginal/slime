@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export type Route =
-  | { view: 'list' }
+  | { view: 'list'; collectionId?: string | null }
   | { view: 'create' }
   | { view: 'edit'; ruleId: string }
   | { view: 'action-button' }
@@ -11,7 +11,7 @@ export function parsePath(path: string): Route {
   const cleanPath = path.replace(/^#/, '');
 
   if (!cleanPath || cleanPath === '/') {
-    return { view: 'list' };
+    return { view: 'list', collectionId: null };
   }
 
   if (cleanPath === 'create') {
@@ -31,12 +31,21 @@ export function parsePath(path: string): Route {
     return { view: 'edit', ruleId: editMatch[1] };
   }
 
-  return { view: 'list' };
+  // Collection routes: collection/:collectionId
+  const collectionMatch = cleanPath.match(/^collection\/(.+)$/);
+  if (collectionMatch) {
+    return { view: 'list', collectionId: collectionMatch[1] };
+  }
+
+  return { view: 'list', collectionId: null };
 }
 
 export function routeToPath(route: Route): string {
   switch (route.view) {
     case 'list':
+      if (route.collectionId) {
+        return `collection/${route.collectionId}`;
+      }
       return '';
     case 'create':
       return 'create';

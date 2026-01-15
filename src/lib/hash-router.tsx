@@ -29,6 +29,9 @@ export function Routes({ children }: RoutesProps) {
     if (route.view === 'edit') {
       return { ruleId: route.ruleId };
     }
+    if (route.view === 'list' && route.collectionId) {
+      return { collectionId: route.collectionId };
+    }
     return {} as Record<string, string>;
   }, [route]);
 
