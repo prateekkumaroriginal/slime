@@ -1,18 +1,24 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, FileText, Download, Upload, Menu, Zap, HardDrive } from 'lucide-react';
-import type { FillRule, DefaultRuleMapping } from '@/shared/types';
-import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl } from '@/storage/rules';
+import type { FillRule, DefaultRuleMapping, Collection } from '@/shared/types';
+import { SIDEBAR_PREFERENCE_KEY, DEFAULT_COLLECTION_ID } from '@/shared/config';
+import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl, getCollections, getRulesForCollection } from '@/storage/rules';
 import { Button, Card } from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
 import SyntaxHelp from './components/SyntaxHelp';
 import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
+import CollectionSidebar from './components/CollectionSidebar';
 import FabConfig from './components/FabConfig';
 import ImageStorageConfig from './components/ImageStorageConfig';
 
 export default function Options() {
+  const [allRules, setAllRules] = useState<FillRule[]>([]);
   const [rules, setRules] = useState<FillRule[]>([]);
   const [archivedRules, setArchivedRules] = useState<FillRule[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [isCollectionSidebarOpen, setIsCollectionSidebarOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<FillRule | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showSyntaxHelp, setShowSyntaxHelp] = useState(false);
@@ -24,14 +30,60 @@ export default function Options() {
 
   useEffect(() => {
     loadRules();
+    loadCollections();
     loadDefaultMappings();
+    loadSidebarPreference();
   }, []);
+
+  async function loadSidebarPreference() {
+    const result = await chrome.storage.local.get(SIDEBAR_PREFERENCE_KEY);
+    if (typeof result[SIDEBAR_PREFERENCE_KEY] === 'boolean') {
+      setIsCollectionSidebarOpen(result[SIDEBAR_PREFERENCE_KEY]);
+    }
+  }
+
+  async function handleToggleCollectionSidebar() {
+    const newState = !isCollectionSidebarOpen;
+    setIsCollectionSidebarOpen(newState);
+    await chrome.storage.local.set({ [SIDEBAR_PREFERENCE_KEY]: newState });
+  }
+
+  function getCollectionName(): string {
+    if (selectedCollectionId === null) {
+      return 'All Rules';
+    }
+    if (selectedCollectionId === DEFAULT_COLLECTION_ID) {
+      return 'Default';
+    }
+    const collection = collections.find(c => c.id === selectedCollectionId);
+    return collection?.name || 'Unknown';
+  }
+
+  useEffect(() => {
+    filterRulesByCollection();
+  }, [allRules, selectedCollectionId]);
 
   async function loadRules() {
     const activeRules = await getActiveRules();
     const archived = await getArchivedRules();
-    setRules(activeRules);
+    setAllRules(activeRules);
     setArchivedRules(archived);
+  }
+
+  async function loadCollections() {
+    const cols = await getCollections();
+    setCollections(cols);
+  }
+
+  async function filterRulesByCollection() {
+    if (selectedCollectionId === null) {
+      // "All Rules" - show all active rules
+      setRules(allRules);
+    } else {
+      // Filter by collection
+      const filtered = await getRulesForCollection(selectedCollectionId);
+      setRules(filtered.filter(r => !r.isArchived));
+    }
   }
 
   async function loadDefaultMappings() {
@@ -68,6 +120,12 @@ export default function Options() {
 
   async function handleSave(rule: FillRule) {
     if (isCreating) {
+      // Assign current collection to new rule (if not "All Rules" view)
+      if (selectedCollectionId !== null && selectedCollectionId !== DEFAULT_COLLECTION_ID) {
+        rule.collectionId = selectedCollectionId;
+      } else {
+        rule.collectionId = undefined; // Default collection
+      }
       await addRule(rule);
     } else {
       await updateRule(rule);
@@ -204,6 +262,16 @@ export default function Options() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <CollectionSidebar
+        collections={collections}
+        rules={allRules}
+        selectedCollectionId={selectedCollectionId}
+        onSelectCollection={setSelectedCollectionId}
+        onCollectionsChange={loadCollections}
+        onRulesChange={loadRules}
+        isOpen={isCollectionSidebarOpen}
+        onToggle={handleToggleCollectionSidebar}
+      />
       <div className="max-w-4xl mx-auto px-6 pt-10 pb-[200px]">
         <header className="mb-10">
           <div className="flex items-start justify-between">
@@ -242,7 +310,7 @@ export default function Options() {
         ) : (
           <>
             <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-zinc-200">Rules</h2>
+              <h2 className="text-xl font-semibold text-zinc-200">{getCollectionName()}</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <Button variant="secondary" onClick={() => setShowFabConfig(true)}>
                   <Zap className="w-4 h-4" />
@@ -286,6 +354,8 @@ export default function Options() {
             ) : (
               <RuleList
                 rules={rules}
+                collections={collections}
+                selectedCollectionId={selectedCollectionId}
                 onEdit={handleEdit}
                 onArchive={handleArchive}
                 onResetIncrement={handleResetIncrement}

@@ -42,6 +42,7 @@ export interface FillRule {
   enabled: boolean;
   incrementCounter: number; // Current increment value for {{inc}}
   isArchived?: boolean; // Whether the rule is archived
+  collectionId?: string; // Reference to collection (null/undefined = "Default" collection)
   postActions?: PostAction[]; // Chain of actions to execute after all fields complete successfully
   createdAt: number;
   updatedAt: number;
@@ -226,4 +227,21 @@ export type ImageMessage =
   | GetImageSettingsMessage
   | SaveImageSettingsMessage
   | GetImageStorageUsageMessage;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collections Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Collection interface
+export interface Collection {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Storage structure for collections
+export interface CollectionsStorageData {
+  collections: Collection[];
+}
 
