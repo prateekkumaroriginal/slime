@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { FillRule, StorageData, FABSettings, DefaultRuleMapping, DefaultRulesData, StoredImage, ImageSettings, ImagesStorageData } from '@/shared/types';
-import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS, FAB_SETTINGS_KEY, DEFAULT_RULES_KEY, DEFAULT_FAB_SETTINGS, IMAGES_STORAGE_KEY, IMAGE_SETTINGS_KEY, DEFAULT_IMAGE_SETTINGS } from '@/shared/config';
+import type { FillRule, StorageData, FABSettings, DefaultRuleMapping, DefaultRulesData, StoredImage, ImageSettings, ImagesStorageData, Collection, CollectionsStorageData } from '@/shared/types';
+import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS, FAB_SETTINGS_KEY, DEFAULT_RULES_KEY, DEFAULT_FAB_SETTINGS, IMAGES_STORAGE_KEY, IMAGE_SETTINGS_KEY, DEFAULT_IMAGE_SETTINGS, COLLECTIONS_STORAGE_KEY, DEFAULT_COLLECTION_ID } from '@/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod Schema for Import Validation (with custom error messages)
@@ -32,6 +32,7 @@ const FillRuleSchema = z.object({
   fields: z.array(FieldMappingSchema, { message: 'fields must be an array' }),
   enabled: z.boolean({ message: 'enabled must be a boolean' }),
   incrementCounter: z.number({ message: 'incrementCounter must be a number' }).optional(),
+  collectionId: z.string({ message: 'collectionId must be a string' }).optional(),
   postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
 });
 
@@ -196,6 +197,16 @@ export async function restoreRule(id: string): Promise<void> {
   if (rule) {
     rule.isArchived = false;
     rule.updatedAt = Date.now();
+    
+    // Validate collectionId - if collection was deleted, move to Default
+    if (rule.collectionId) {
+      const collections = await getCollections();
+      const collectionExists = collections.some(c => c.id === rule.collectionId);
+      if (!collectionExists) {
+        rule.collectionId = undefined;
+      }
+    }
+    
     await saveRules(rules);
   }
 }
@@ -602,5 +613,200 @@ export function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collections Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Get all collections from storage
+export async function getCollections(): Promise<Collection[]> {
+  const result = await chrome.storage.local.get(COLLECTIONS_STORAGE_KEY);
+  const data = result[COLLECTIONS_STORAGE_KEY] as CollectionsStorageData | undefined;
+  return data?.collections ?? [];
+}
+
+// Save all collections to storage (internal)
+async function saveCollections(collections: Collection[]): Promise<void> {
+  const data: CollectionsStorageData = { collections };
+  await chrome.storage.local.set({ [COLLECTIONS_STORAGE_KEY]: data });
+}
+
+// Create a new collection
+export async function addCollection(name: string): Promise<Collection> {
+  // Validate name is not "Default" (case-insensitive)
+  if (name.toLowerCase().trim() === 'default') {
+    throw new Error('Collection name cannot be "Default"');
+  }
+  
+  // Validate name is not empty
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Collection name cannot be empty');
+  }
+  
+  const collections = await getCollections();
+  
+  // Check for duplicate names (case-insensitive)
+  const nameExists = collections.some(c => c.name.toLowerCase() === trimmedName.toLowerCase());
+  if (nameExists) {
+    throw new Error(`A collection with the name "${trimmedName}" already exists`);
+  }
+  
+  const now = Date.now();
+  const newCollection: Collection = {
+    id: generateId(),
+    name: trimmedName,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  collections.push(newCollection);
+  await saveCollections(collections);
+  
+  return newCollection;
+}
+
+// Update/rename a collection
+export async function updateCollection(id: string, name: string): Promise<void> {
+  // Prevent updating "Default" collection
+  if (id === DEFAULT_COLLECTION_ID) {
+    throw new Error('Cannot rename "Default" collection');
+  }
+  
+  // Validate name is not "Default" (case-insensitive)
+  if (name.toLowerCase().trim() === 'default') {
+    throw new Error('Collection name cannot be "Default"');
+  }
+  
+  // Validate name is not empty
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Collection name cannot be empty');
+  }
+  
+  const collections = await getCollections();
+  const index = collections.findIndex(c => c.id === id);
+  
+  if (index === -1) {
+    throw new Error('Collection not found');
+  }
+  
+  // Check for duplicate names (case-insensitive, excluding current collection)
+  const nameExists = collections.some(c => c.id !== id && c.name.toLowerCase() === trimmedName.toLowerCase());
+  if (nameExists) {
+    throw new Error(`A collection with the name "${trimmedName}" already exists`);
+  }
+  
+  collections[index] = {
+    ...collections[index],
+    name: trimmedName,
+    updatedAt: Date.now(),
+  };
+  
+  await saveCollections(collections);
+}
+
+// Delete a collection
+export async function deleteCollection(id: string): Promise<void> {
+  // Prevent deleting "Default" collection
+  if (id === DEFAULT_COLLECTION_ID) {
+    throw new Error('Cannot delete "Default" collection');
+  }
+  
+  const collections = await getCollections();
+  const index = collections.findIndex(c => c.id === id);
+  
+  if (index === -1) {
+    throw new Error('Collection not found');
+  }
+  
+  // Delete all non-archived rules in this collection
+  const rules = await getRules();
+  const rulesToDelete = rules.filter(r => r.collectionId === id && !r.isArchived);
+  const ruleIdsToDelete = new Set(rulesToDelete.map(r => r.id));
+  
+  // Remove rules from storage
+  const remainingRules = rules.filter(r => !ruleIdsToDelete.has(r.id));
+  await saveRules(remainingRules);
+  
+  // Remove collection
+  collections.splice(index, 1);
+  await saveCollections(collections);
+}
+
+// Get rules for a specific collection
+export async function getRulesForCollection(collectionId: string | null): Promise<FillRule[]> {
+  const rules = await getRules();
+  
+  if (collectionId === null) {
+    // "All Rules" - return all rules
+    return rules;
+  }
+  
+  if (collectionId === DEFAULT_COLLECTION_ID) {
+    // "Default" - return rules with no collectionId
+    return rules.filter(r => !r.collectionId);
+  }
+  
+  // Specific collection - return rules with matching collectionId
+  return rules.filter(r => r.collectionId === collectionId);
+}
+
+// Re-export DEFAULT_COLLECTION_ID for convenience
+export { DEFAULT_COLLECTION_ID };
+
+// Move a rule to a different collection
+export async function moveRuleToCollection(ruleId: string, collectionId: string | null): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find(r => r.id === ruleId);
+  
+  if (!rule) {
+    throw new Error('Rule not found');
+  }
+  
+  // Validate collection exists (if not null and not DEFAULT_COLLECTION_ID)
+  if (collectionId !== null && collectionId !== DEFAULT_COLLECTION_ID) {
+    const collections = await getCollections();
+    const collectionExists = collections.some(c => c.id === collectionId);
+    if (!collectionExists) {
+      throw new Error('Collection not found');
+    }
+  }
+  
+  // Set collectionId (null = Default, undefined = Default)
+  rule.collectionId = collectionId === DEFAULT_COLLECTION_ID ? undefined : collectionId || undefined;
+  rule.updatedAt = Date.now();
+  
+  await saveRules(rules);
+}
+
+// Export a collection to JSON
+export async function exportCollectionToJson(collectionId: string): Promise<string> {
+  if (collectionId === DEFAULT_COLLECTION_ID) {
+    throw new Error('Cannot export "Default" collection');
+  }
+  
+  const collections = await getCollections();
+  const collection = collections.find(c => c.id === collectionId);
+  
+  if (!collection) {
+    throw new Error('Collection not found');
+  }
+  
+  const rules = await getRulesForCollection(collectionId);
+  
+  return JSON.stringify({
+    version: CURRENT_VERSION,
+    collection: {
+      name: collection.name,
+    },
+    rules: rules.map(r => {
+      // Remove id, collectionId, createdAt, updatedAt for export
+      const { id, collectionId: _, createdAt, updatedAt, ...exportRule } = r;
+      return exportRule;
+    }),
+    exportedAt: Date.now(),
+  }, null, 2);
 }
 

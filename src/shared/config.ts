@@ -19,6 +19,15 @@ export const IMAGES_STORAGE_KEY = 'slimeImages';
 // Chrome storage key for image settings
 export const IMAGE_SETTINGS_KEY = 'slimeImageSettings';
 
+// Chrome storage key for collections
+export const COLLECTIONS_STORAGE_KEY = 'slimeCollections';
+
+// Chrome storage key for sidebar preference
+export const SIDEBAR_PREFERENCE_KEY = 'slimeSidebarOpen';
+
+// Special reserved ID for "Default" collection
+export const DEFAULT_COLLECTION_ID = '__default__';
+
 // Import/Export versioning
 export const CURRENT_VERSION = 1;
 export const SUPPORTED_VERSIONS = [1] as const;
