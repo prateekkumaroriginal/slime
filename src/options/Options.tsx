@@ -28,8 +28,8 @@ function OptionsContent() {
   const [defaultMappings, setDefaultMappings] = useState<DefaultRuleMapping[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derive selectedCollectionId from route
-  const selectedCollectionId = route.view === 'list' ? (route.collectionId ?? null) : null;
+  // Derive selectedCollectionId from route (available on list, create, edit views)
+  const selectedCollectionId = 'collectionId' in route ? (route.collectionId ?? null) : null;
 
   useEffect(() => {
     loadRules();
@@ -138,11 +138,19 @@ function OptionsContent() {
   }
 
   function handleCreate() {
-    navigate('create');
+    if (selectedCollectionId) {
+      navigate(`collection/${selectedCollectionId}/create`);
+    } else {
+      navigate('create');
+    }
   }
 
   function handleEdit(rule: FillRule) {
-    navigate(`edit/${rule.id}`);
+    if (selectedCollectionId) {
+      navigate(`collection/${selectedCollectionId}/edit/${rule.id}`);
+    } else {
+      navigate(`edit/${rule.id}`);
+    }
     if (isArchivedSidebarOpen) {
       setIsArchivedSidebarOpen(false);
     }
@@ -162,11 +170,21 @@ function OptionsContent() {
       await updateRule(rule);
     }
     await loadRules();
-    navigate('');
+    // Navigate back to the collection we came from
+    if (selectedCollectionId) {
+      navigate(`collection/${selectedCollectionId}`);
+    } else {
+      navigate('');
+    }
   }
 
   function handleCancel() {
-    navigate('');
+    // Navigate back to the collection we came from
+    if (selectedCollectionId) {
+      navigate(`collection/${selectedCollectionId}`);
+    } else {
+      navigate('');
+    }
   }
 
   async function handleArchive(id: string) {
@@ -352,6 +370,40 @@ function OptionsContent() {
     </>
   );
 
+  const CreateView = () =>
+    editingRule ? (
+      <RuleForm
+        rule={editingRule}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isNew={true}
+        isHelpOpen={showSyntaxHelp}
+        isArchivedSidebarOpen={isArchivedSidebarOpen}
+        onArchive={handleArchive}
+        onRestore={handleRestore}
+        onPermanentDelete={handlePermanentDelete}
+      />
+    ) : null;
+
+  const EditView = () =>
+    loadingRule ? (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    ) : editingRule ? (
+      <RuleForm
+        rule={editingRule}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isNew={false}
+        isHelpOpen={showSyntaxHelp}
+        isArchivedSidebarOpen={isArchivedSidebarOpen}
+        onArchive={handleArchive}
+        onRestore={handleRestore}
+        onPermanentDelete={handlePermanentDelete}
+      />
+    ) : null;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <CollectionSidebar
@@ -397,46 +449,10 @@ function OptionsContent() {
           path="action-button"
           element={<FabConfig onBack={() => navigate('')} />}
         />
-        <Route
-          path="create"
-          element={
-            editingRule ? (
-              <RuleForm
-                rule={editingRule}
-                onSave={handleSave}
-                onCancel={handleCancel}
-                isNew={true}
-                isHelpOpen={showSyntaxHelp}
-                isArchivedSidebarOpen={isArchivedSidebarOpen}
-                onArchive={handleArchive}
-                onRestore={handleRestore}
-                onPermanentDelete={handlePermanentDelete}
-              />
-            ) : null
-          }
-        />
-        <Route
-          path="edit/:ruleId"
-          element={
-            loadingRule ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : editingRule ? (
-              <RuleForm
-                rule={editingRule}
-                onSave={handleSave}
-                onCancel={handleCancel}
-                isNew={false}
-                isHelpOpen={showSyntaxHelp}
-                isArchivedSidebarOpen={isArchivedSidebarOpen}
-                onArchive={handleArchive}
-                onRestore={handleRestore}
-                onPermanentDelete={handlePermanentDelete}
-              />
-            ) : null
-          }
-        />
+        <Route path="create" element={<CreateView />} />
+        <Route path="collection/:collectionId/create" element={<CreateView />} />
+        <Route path="edit/:ruleId" element={<EditView />} />
+        <Route path="collection/:collectionId/edit/:ruleId" element={<EditView />} />
         <Route path="" element={<ListView />} />
         <Route path="collection/:collectionId" element={<ListView />} />
       </div>

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 export type Route =
   | { view: 'list'; collectionId?: string | null }
-  | { view: 'create' }
-  | { view: 'edit'; ruleId: string }
+  | { view: 'create'; collectionId?: string | null }
+  | { view: 'edit'; ruleId: string; collectionId?: string | null }
   | { view: 'action-button' }
   | { view: 'image-storage' };
 
@@ -15,7 +15,7 @@ export function parsePath(path: string): Route {
   }
 
   if (cleanPath === 'create') {
-    return { view: 'create' };
+    return { view: 'create', collectionId: null };
   }
 
   if (cleanPath === 'action-button') {
@@ -26,13 +26,25 @@ export function parsePath(path: string): Route {
     return { view: 'image-storage' };
   }
 
-  const editMatch = cleanPath.match(/^edit\/(.+)$/);
+  // Edit without collection context: edit/:ruleId
+  const editMatch = cleanPath.match(/^edit\/([^/]+)$/);
   if (editMatch) {
-    return { view: 'edit', ruleId: editMatch[1] };
+    return { view: 'edit', ruleId: editMatch[1], collectionId: null };
   }
 
-  // Collection routes: collection/:collectionId
-  const collectionMatch = cleanPath.match(/^collection\/(.+)$/);
+  // Collection routes with nested actions: collection/:collectionId/...
+  const collectionCreateMatch = cleanPath.match(/^collection\/([^/]+)\/create$/);
+  if (collectionCreateMatch) {
+    return { view: 'create', collectionId: collectionCreateMatch[1] };
+  }
+
+  const collectionEditMatch = cleanPath.match(/^collection\/([^/]+)\/edit\/([^/]+)$/);
+  if (collectionEditMatch) {
+    return { view: 'edit', collectionId: collectionEditMatch[1], ruleId: collectionEditMatch[2] };
+  }
+
+  // Collection list view: collection/:collectionId
+  const collectionMatch = cleanPath.match(/^collection\/([^/]+)$/);
   if (collectionMatch) {
     return { view: 'list', collectionId: collectionMatch[1] };
   }
@@ -48,8 +60,14 @@ export function routeToPath(route: Route): string {
       }
       return '';
     case 'create':
+      if (route.collectionId) {
+        return `collection/${route.collectionId}/create`;
+      }
       return 'create';
     case 'edit':
+      if (route.collectionId) {
+        return `collection/${route.collectionId}/edit/${route.ruleId}`;
+      }
       return `edit/${route.ruleId}`;
     case 'action-button':
       return 'action-button';

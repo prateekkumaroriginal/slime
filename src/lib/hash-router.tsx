@@ -26,13 +26,14 @@ export function Routes({ children }: RoutesProps) {
   const { route, navigate } = useHashRoute();
 
   const params = useMemo((): Record<string, string> => {
+    const result: Record<string, string> = {};
     if (route.view === 'edit') {
-      return { ruleId: route.ruleId };
+      result.ruleId = route.ruleId;
     }
-    if (route.view === 'list' && route.collectionId) {
-      return { collectionId: route.collectionId };
+    if ('collectionId' in route && route.collectionId) {
+      result.collectionId = route.collectionId;
     }
-    return {} as Record<string, string>;
+    return result;
   }, [route]);
 
   const contextValue: RouteContextValue = useMemo(
