@@ -1,6 +1,29 @@
 import { z } from 'zod';
-import type { FillRule, StorageData, FABSettings, DefaultRuleMapping, DefaultRulesData, StoredImage, ImageSettings, ImagesStorageData, Collection, CollectionsStorageData } from '@/shared/types';
-import { STORAGE_KEY, CURRENT_VERSION, SUPPORTED_VERSIONS, FAB_SETTINGS_KEY, DEFAULT_RULES_KEY, DEFAULT_FAB_SETTINGS, IMAGES_STORAGE_KEY, IMAGE_SETTINGS_KEY, DEFAULT_IMAGE_SETTINGS, COLLECTIONS_STORAGE_KEY, DEFAULT_COLLECTION_ID } from '@/shared/config';
+import type {
+  FillRule,
+  StorageData,
+  FABSettings,
+  DefaultRuleMapping,
+  DefaultRulesData,
+  StoredImage,
+  ImageSettings,
+  ImagesStorageData,
+  Collection,
+  CollectionsStorageData,
+} from '@/shared/types';
+import {
+  STORAGE_KEY,
+  CURRENT_VERSION,
+  SUPPORTED_VERSIONS,
+  FAB_SETTINGS_KEY,
+  DEFAULT_RULES_KEY,
+  DEFAULT_FAB_SETTINGS,
+  IMAGES_STORAGE_KEY,
+  IMAGE_SETTINGS_KEY,
+  DEFAULT_IMAGE_SETTINGS,
+  COLLECTIONS_STORAGE_KEY,
+  DEFAULT_COLLECTION_ID,
+} from '@/shared/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Zod Schema for Import Validation (with custom error messages)
@@ -779,6 +802,36 @@ export async function moveRuleToCollection(ruleId: string, collectionId: string 
   rule.updatedAt = Date.now();
   
   await saveRules(rules);
+}
+
+// Reorder rules by saving them in the order specified by ruleIds
+// Only reorders rules that are in the provided ruleIds array
+export async function reorderRules(ruleIds: string[]): Promise<void> {
+  const rules = await getRules();
+  
+  // Create a map for quick lookup
+  const ruleMap = new Map(rules.map(r => [r.id, r]));
+  
+  // Build the new order: first the reordered rules, then any rules not in ruleIds
+  const reorderedRules: FillRule[] = [];
+  const ruleIdsSet = new Set(ruleIds);
+  
+  // Add rules in the new order
+  for (const id of ruleIds) {
+    const rule = ruleMap.get(id);
+    if (rule) {
+      reorderedRules.push(rule);
+    }
+  }
+  
+  // Add any remaining rules that weren't in the reorder list (e.g., archived rules)
+  for (const rule of rules) {
+    if (!ruleIdsSet.has(rule.id)) {
+      reorderedRules.push(rule);
+    }
+  }
+  
+  await saveRules(reorderedRules);
 }
 
 // Export a collection to JSON
