@@ -1,11 +1,63 @@
-import { useState, useEffect, useRef, useEffectEvent } from 'react';
-import { Plus, Trash2, Archive, RefreshCcw, ChevronDown, ChevronRight, Grip, Upload, X } from 'lucide-react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  useState,
+  useEffect,
+  useRef,
+  useEffectEvent,
+} from 'react';
+import {
+  Plus,
+  Trash2,
+  Archive,
+  RefreshCcw,
+  ChevronDown,
+  ChevronRight,
+  Grip,
+  Upload,
+  X,
+  Copy,
+} from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { FillRule, FieldMapping, MatchType, ValueType, PostAction, PostActionType, StoredImage } from '@/shared/types';
-import { generateId, getAllImages, saveImage, getImage, canStoreImage, formatBytes, getImageStorageUsage } from '@/storage/rules';
-import { Button, Input, Select, Checkbox, Card } from '@/components';
+import type {
+  FillRule,
+  FieldMapping,
+  MatchType,
+  ValueType,
+  PostAction,
+  PostActionType,
+  StoredImage,
+} from '@/shared/types';
+import {
+  generateId,
+  getAllImages,
+  saveImage,
+  getImage,
+  canStoreImage,
+  formatBytes,
+  getImageStorageUsage,
+} from '@/storage/rules';
+import { SmartPointerSensor } from '@/lib/dnd-sensors';
+import {
+  Button,
+  Input,
+  Select,
+  Checkbox,
+  Card,
+} from '@/components';
 
 interface RuleFormProps {
   rule: FillRule;
@@ -69,6 +121,29 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     }));
   }
 
+  function duplicateFieldMapping(id: string) {
+    setFormData((prev) => {
+      const fieldToDuplicate = prev.fields.find((f) => f.id === id);
+      if (!fieldToDuplicate) return prev;
+
+      const duplicatedField: FieldMapping = {
+        ...fieldToDuplicate,
+        id: generateId(),
+        postActions: fieldToDuplicate.postActions?.map((a) => ({
+          ...a,
+          id: generateId(),
+        })),
+      };
+
+      // Insert the duplicate right after the original
+      const index = prev.fields.findIndex((f) => f.id === id);
+      const newFields = [...prev.fields];
+      newFields.splice(index + 1, 0, duplicatedField);
+
+      return { ...prev, fields: newFields };
+    });
+  }
+
   // Rule-level PostActions management
   function addPostAction() {
     const newAction: PostAction = {
@@ -96,11 +171,29 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     }));
   }
 
-  // Drag and drop sensors
+  // Drag and drop sensors for PostActions
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(SmartPointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Drag and drop sensors for Fields
+  const fieldSensors = useSensors(
+    useSensor(SmartPointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleFieldsDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = formData.fields.findIndex((f) => f.id === active.id);
+      const newIndex = formData.fields.findIndex((f) => f.id === over.id);
+      setFormData((prev) => ({
+        ...prev,
+        fields: arrayMove(prev.fields, oldIndex, newIndex),
+      }));
+    }
+  }
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -215,17 +308,22 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
         {formData.fields.length === 0 ? (
           <p className="text-center py-8 text-zinc-500">No fields yet. Click "Add Field" to create one.</p>
         ) : (
-          <div className="space-y-4">
-            {formData.fields.map((field, index) => (
-              <FieldMappingRow
-                key={field.id}
-                field={field}
-                index={index}
-                onUpdate={(updates) => updateFieldMapping(field.id, updates)}
-                onRemove={() => removeFieldMapping(field.id)}
-              />
-            ))}
-          </div>
+          <DndContext sensors={fieldSensors} collisionDetection={closestCenter} onDragEnd={handleFieldsDragEnd}>
+            <SortableContext items={formData.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-4">
+                {formData.fields.map((field, index) => (
+                  <FieldMappingRow
+                    key={field.id}
+                    field={field}
+                    index={index}
+                    onUpdate={(updates) => updateFieldMapping(field.id, updates)}
+                    onRemove={() => removeFieldMapping(field.id)}
+                    onDuplicate={() => duplicateFieldMapping(field.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </Card>
 
@@ -267,6 +365,7 @@ interface FieldMappingRowProps {
   index: number;
   onUpdate: (updates: Partial<FieldMapping>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
 }
 
 const matchTypeOptions = [
@@ -309,7 +408,7 @@ function getSelectorPlaceholder(matchType: MatchType): string {
 // Generate the internal placeholder syntax for title/desc
 function generatePlaceholderValue(valueType: ValueType, minLength?: number, maxLength?: number): string {
   if (valueType !== 'title' && valueType !== 'desc') return '';
-  
+
   const type = valueType;
   if (minLength || maxLength) {
     const min = minLength ?? '';
@@ -319,20 +418,28 @@ function generatePlaceholderValue(valueType: ValueType, minLength?: number, maxL
   return `{{${type}}}`;
 }
 
-function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowProps) {
-  const [postActionsExpanded, setPostActionsExpanded] = useState(!!(field.postActions && field.postActions.length > 0));
+function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: FieldMappingRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
+  const [postActionsExpanded, setPostActionsExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<StoredImage | null>(null);
   const [allImages, setAllImages] = useState<StoredImage[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
   // Load images when component mounts or when field.imageId changes
   useEffect(() => {
     async function loadImages() {
       const images = await getAllImages();
       setAllImages(images);
-      
+
       // Load selected image if imageId is set
       if (field.imageId) {
         const img = await getImage(field.imageId);
@@ -345,8 +452,8 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
   }, [field.imageId]);
 
   // Drag and drop sensors for field-level postActions
-  const fieldSensors = useSensors(
-    useSensor(PointerSensor),
+  const postActionSensors = useSensors(
+    useSensor(SmartPointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -390,7 +497,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
 
       const imageId = await saveImage(file);
       onUpdate({ imageId });
-      
+
       // Refresh images list
       const images = await getAllImages();
       setAllImages(images);
@@ -459,20 +566,36 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
   const isImageType = field.valueType === 'image';
 
   return (
-    <div className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700">
-      {/* Top bar with number and delete */}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 cursor-grab active:cursor-grabbing touch-none"
+    >
+      {/* Top bar with number, duplicate and delete */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
         <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
           {index + 1}
         </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="px-3 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md rounded-bl-md transition-colors"
-          title="Delete Field"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+            className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-fuchsia-400 hover:bg-fuchsia-500/20 rounded-bl-md transition-colors"
+            title="Duplicate Field"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md transition-colors"
+            title="Delete Field"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Form fields */}
@@ -540,12 +663,12 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
         ) : isImageType ? (
           <div className="space-y-3">
             <label className="block text-xs font-medium text-zinc-400 mb-1">Image</label>
-            
+
             {/* Selected image preview */}
             {selectedImage ? (
               <div className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-600 rounded-lg">
-                <img 
-                  src={selectedImage.dataUrl} 
+                <img
+                  src={selectedImage.dataUrl}
                   alt={selectedImage.name}
                   className="w-12 h-12 object-cover rounded border border-zinc-600"
                 />
@@ -565,7 +688,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
             ) : (
               <div className="space-y-3">
                 {/* Upload new image */}
-                <div 
+                <div
                   className="relative border-2 border-dashed border-zinc-600 rounded-lg p-4 hover:border-emerald-500 transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -606,8 +729,8 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
                           className="relative group"
                           title={`${img.name} (${formatBytes(img.size)})`}
                         >
-                          <img 
-                            src={img.dataUrl} 
+                          <img
+                            src={img.dataUrl}
                             alt={img.name}
                             className="w-10 h-10 object-cover rounded border border-zinc-600 hover:border-emerald-500 transition-colors"
                           />
@@ -662,7 +785,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove }: FieldMappingRowPr
               {(!field.postActions || field.postActions.length === 0) ? (
                 <p className="text-center py-4 text-zinc-500 text-xs">No post-actions yet. These run after this field fills successfully.</p>
               ) : (
-                <DndContext sensors={fieldSensors} collisionDetection={closestCenter} onDragEnd={handleFieldPostActionDragEnd}>
+                <DndContext sensors={postActionSensors} collisionDetection={closestCenter} onDragEnd={handleFieldPostActionDragEnd}>
                   <SortableContext items={field.postActions.map((a) => a.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-2">
                       {field.postActions.map((action) => (

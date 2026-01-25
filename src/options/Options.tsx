@@ -1,10 +1,56 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Plus, FileText, Download, Upload, Menu, Zap, HardDrive } from 'lucide-react';
-import type { FillRule, DefaultRuleMapping, Collection } from '@/shared/types';
-import { SIDEBAR_PREFERENCE_KEY, DEFAULT_COLLECTION_ID } from '@/shared/config';
-import { getActiveRules, getArchivedRules, addRule, updateRule, archiveRule, restoreRule, permanentlyDeleteRule, createEmptyRule, resetIncrement, exportRulesToJson, exportSingleRuleToJson, importRulesFromJson, ImportValidationError, toggleRule, generateId, getDefaultRuleMappings, setDefaultRuleForUrl, removeDefaultRuleForUrl, getCollections, getRulesForCollection, getRule } from '@/storage/rules';
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from 'react';
+import {
+  Plus,
+  FileText,
+  Download,
+  Upload,
+  Menu,
+  Zap,
+  HardDrive,
+} from 'lucide-react';
+import type {
+  FillRule,
+  DefaultRuleMapping,
+  Collection,
+} from '@/shared/types';
+import {
+  SIDEBAR_PREFERENCE_KEY,
+  DEFAULT_COLLECTION_ID,
+} from '@/shared/config';
+import {
+  getActiveRules,
+  getArchivedRules,
+  addRule,
+  updateRule,
+  archiveRule,
+  restoreRule,
+  permanentlyDeleteRule,
+  createEmptyRule,
+  resetIncrement,
+  exportRulesToJson,
+  exportSingleRuleToJson,
+  importRulesFromJson,
+  ImportValidationError,
+  toggleRule,
+  generateId,
+  getDefaultRuleMappings,
+  setDefaultRuleForUrl,
+  removeDefaultRuleForUrl,
+  getCollections,
+  getRulesForCollection, getRule,
+  reorderRules,
+  moveRuleToCollection,
+} from '@/storage/rules';
 import { Routes, Route, useRoute, useNavigate } from '@/lib/hash-router';
-import { Button, Card } from '@/components';
+import {
+  Button,
+  Card,
+} from '@/components';
 import RuleForm from './components/RuleForm';
 import RuleList from './components/RuleList';
 import SyntaxHelp from './components/SyntaxHelp';
@@ -243,6 +289,16 @@ function OptionsContent() {
     await loadRules();
   }
 
+  async function handleReorder(ruleIds: string[]) {
+    await reorderRules(ruleIds);
+    await loadRules();
+  }
+
+  async function handleMoveToCollection(ruleId: string, collectionId: string | null) {
+    await moveRuleToCollection(ruleId, collectionId);
+    await loadRules();
+  }
+
   async function handleExport() {
     try {
       const jsonString = await exportRulesToJson();
@@ -355,13 +411,14 @@ function OptionsContent() {
         <RuleList
           rules={rules}
           collections={collections}
-          selectedCollectionId={selectedCollectionId}
           onEdit={handleEdit}
           onArchive={handleArchive}
           onResetIncrement={handleResetIncrement}
           onDuplicate={handleDuplicate}
           onToggle={handleToggle}
           onExport={handleExportSingle}
+          onReorder={handleReorder}
+          onMoveToCollection={handleMoveToCollection}
           defaultMappings={defaultMappings}
           onSetDefault={handleSetDefault}
           onRemoveDefault={handleRemoveDefault}
