@@ -1,6 +1,6 @@
 # Slime - Chrome Extension Project Rules
 
-> **Note**: Keep this file (`AGENTS.md`) and `CLAUDE.md` in sync. When updating project rules, update both files.
+> **Note**: Keep this file (`CLAUDE.md`) and `AGENTS.md` in sync. When updating project rules, update both files.
 
 ## Project Overview
 Slime is a Chrome Extension (Manifest V3) for auto-filling forms with custom rules and dynamic values. Built with React 19, TypeScript, Vite, and Tailwind CSS.
