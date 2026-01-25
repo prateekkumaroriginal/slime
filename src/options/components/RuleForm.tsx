@@ -19,7 +19,6 @@ import {
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -27,7 +26,6 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -171,17 +169,11 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     }));
   }
 
-  // Drag and drop sensors for PostActions
-  const sensors = useSensors(
-    useSensor(SmartPointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  // Drag and drop sensors for PostActions (pointer only, no keyboard to prevent SPACE/ENTER triggering drag)
+  const sensors = useSensors(useSensor(SmartPointerSensor));
 
-  // Drag and drop sensors for Fields
-  const fieldSensors = useSensors(
-    useSensor(SmartPointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  // Drag and drop sensors for Fields (pointer only, no keyboard to prevent SPACE/ENTER triggering drag)
+  const fieldSensors = useSensors(useSensor(SmartPointerSensor));
 
   function handleFieldsDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -451,11 +443,8 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
     loadImages();
   }, [field.imageId]);
 
-  // Drag and drop sensors for field-level postActions
-  const postActionSensors = useSensors(
-    useSensor(SmartPointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  // Drag and drop sensors for field-level postActions (pointer only, no keyboard to prevent SPACE/ENTER triggering drag)
+  const postActionSensors = useSensors(useSensor(SmartPointerSensor));
 
   // Handle value type change
   function handleValueTypeChange(newType: ValueType) {

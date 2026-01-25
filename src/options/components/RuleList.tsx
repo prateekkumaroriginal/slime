@@ -10,7 +10,6 @@ import {
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -18,7 +17,6 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -67,14 +65,13 @@ export default function RuleList({
   onSetDefault,
   onRemoveDefault,
 }: RuleListProps) {
-  // Drag and drop sensors (SmartPointerSensor ignores interactive elements)
+  // Drag and drop sensors (SmartPointerSensor ignores interactive elements, no keyboard to prevent SPACE/ENTER triggering drag)
   const sensors = useSensors(
     useSensor(SmartPointerSensor, {
       activationConstraint: {
         distance: 8, // 8px movement required before drag starts (allows clicks)
       },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    })
   );
 
   function handleDragEnd(event: DragEndEvent) {
