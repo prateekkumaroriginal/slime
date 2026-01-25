@@ -1,4 +1,4 @@
-import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage } from '@/shared/types';
+import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage, RepeatGroup, MatchType } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -390,7 +390,7 @@ async function executePostAction(action: PostAction): Promise<boolean> {
           cancelable: true,
         });
         activeElement.dispatchEvent(keyEvent);
-        
+
         // Also dispatch keyup
         const keyUpEvent = new KeyboardEvent('keyup', {
           key: action.key,
@@ -532,19 +532,19 @@ async function setFileInputValue(
     // Convert data URL to blob
     const response = await fetch(imageData.dataUrl);
     const blob = await response.blob();
-    
+
     // Create File object
     const file = new File([blob], imageData.name, { type: imageData.mimeType });
-    
+
     // Use DataTransfer API to set files
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
     element.files = dataTransfer.files;
-    
+
     // Dispatch events to trigger any listeners
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
-    
+
     return true;
   } catch (error) {
     console.error('[Slime] Failed to set file input:', error);
@@ -618,7 +618,7 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
 
     if (fillSuccess) {
       filledCount++;
-      
+
       // Execute field's postActions chain if it exists
       if (field.postActions && field.postActions.length > 0) {
         for (const action of field.postActions) {
@@ -651,6 +651,127 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
       ruleId: rule.id,
       newValue: currentIncrement,
     });
+  }
+
+  // Fill repeat groups if any
+  if (rule.repeatGroups && rule.repeatGroups.length > 0) {
+    for (const group of rule.repeatGroups) {
+      const groupResult = await fillRepeatGroup(group);
+      filledCount += groupResult.filledCount;
+      errors.push(...groupResult.errors);
+    }
+  }
+
+  return { filledCount, errors };
+}
+
+// Find element within a container based on match type
+function findElementInContainer(
+  container: Element,
+  selector: string,
+  matchType: MatchType
+): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
+  try {
+    switch (matchType) {
+      case 'id': {
+        // For ID matching within a container, we need to use querySelector with [id="..."]
+        const regex = parseRegexSelector(selector);
+        if (regex) {
+          const elements = container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+            'input, textarea, select'
+          );
+          for (const el of elements) {
+            const idValue = el.getAttribute('id');
+            if (idValue && regex.test(idValue)) {
+              return el;
+            }
+          }
+          return null;
+        }
+        return container.querySelector(`[id="${selector}"]`);
+      }
+      case 'name': {
+        const regex = parseRegexSelector(selector);
+        if (regex) {
+          const elements = container.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+            'input, textarea, select'
+          );
+          for (const el of elements) {
+            const nameValue = el.getAttribute('name');
+            if (nameValue && regex.test(nameValue)) {
+              return el;
+            }
+          }
+          return null;
+        }
+        return container.querySelector(`[name="${selector}"]`);
+      }
+      case 'querySelector':
+        return container.querySelector(selector);
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+// Fill a repeat group (multiple similar form rows with predefined data)
+async function fillRepeatGroup(
+  group: RepeatGroup
+): Promise<{ filledCount: number; errors: string[] }> {
+  // Find all row containers on the page
+  const rowElements = document.querySelectorAll(group.rowSelector);
+
+  let filledCount = 0;
+  const errors: string[] = [];
+  let allRowsSuccessful = true;
+
+  // Fill each data row into corresponding form row
+  for (let i = 0; i < group.rows.length; i++) {
+    const dataRow = group.rows[i];
+    const formRow = rowElements[i];
+
+    if (!formRow) {
+      errors.push(`[${group.name}] Form row ${i + 1} not found (only ${rowElements.length} rows exist on page)`);
+      allRowsSuccessful = false;
+      continue;
+    }
+
+    // Fill each field in this row
+    for (const field of group.fields) {
+      const value = dataRow.values[field.id];
+      if (value === undefined || value === '') continue;
+
+      // Find element relative to row container
+      const element = findElementInContainer(formRow, field.selector, field.matchType);
+      if (!element) {
+        errors.push(`[${group.name}] Row ${i + 1}: Element not found for "${field.label}" (${field.selector})`);
+        allRowsSuccessful = false;
+        continue;
+      }
+
+      // Generate value in case it contains templates
+      const { value: generatedValue } = generateValue(value, 0);
+
+      if (setElementValue(element, generatedValue)) {
+        filledCount++;
+      } else {
+        errors.push(`[${group.name}] Row ${i + 1}: Failed to set value for "${field.label}"`);
+        allRowsSuccessful = false;
+      }
+    }
+  }
+
+  // Execute group postActions if all rows filled successfully
+  if (allRowsSuccessful && group.postActions && group.postActions.length > 0) {
+    for (const action of group.postActions) {
+      const actionSuccess = await executePostAction(action);
+      if (!actionSuccess) {
+        errors.push(`[${group.name}] PostAction chain stopped: ${action.type} failed`);
+        break;
+      }
+    }
   }
 
   return { filledCount, errors };
@@ -693,30 +814,30 @@ function createFAB(): void {
   // Create container
   fabContainer = document.createElement('div');
   fabContainer.id = 'slime-fab-container';
-  
+
   // Create shadow root for style isolation
   fabShadowRoot = fabContainer.attachShadow({ mode: 'closed' });
-  
+
   // Add styles
   const styleSheet = document.createElement('style');
   styleSheet.textContent = FAB_STYLES;
   fabShadowRoot.appendChild(styleSheet);
-  
+
   // Create FAB button
   fabButton = document.createElement('button');
   fabButton.className = 'slime-fab';
   fabButton.innerHTML = `<img src="${SLIME_LOGO_URL}" alt="Slime" class="slime-fab-icon" />`;
   fabButton.title = 'Slime - Click to fill, drag to move';
   fabShadowRoot.appendChild(fabButton);
-  
+
   // Create popup container (hidden by default)
   miniPopup = document.createElement('div');
   miniPopup.className = 'slime-popup';
   fabShadowRoot.appendChild(miniPopup);
-  
+
   // Add to document
   document.body.appendChild(fabContainer);
-  
+
   // Setup event listeners
   setupFABEvents();
 }
@@ -730,21 +851,21 @@ function setupFABEvents(): void {
   // Mouse down - start potential drag
   fabButton.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return; // Only left click
-    
+
     hasMoved = false;
-    
+
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    
+
     const rect = fabButton!.getBoundingClientRect();
     fabStartX = rect.right;
     fabStartY = rect.bottom;
-    
+
     fabButton!.classList.add('dragging');
-    
+
     document.addEventListener('mousemove', handleDrag);
     document.addEventListener('mouseup', handleDragEnd);
-    
+
     e.preventDefault();
   });
 
@@ -771,26 +892,26 @@ function setupFABEvents(): void {
   function handleDrag(e: MouseEvent): void {
     const dx = e.clientX - dragStartX;
     const dy = e.clientY - dragStartY;
-    
+
     // Only start dragging if moved more than 5px
     if (!isDragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
       isDragging = true;
       hasMoved = true;
       hideMiniPopup();
     }
-    
+
     if (isDragging && fabButton) {
       const newX = fabStartX + dx;
       const newY = fabStartY + dy;
-      
+
       // Convert to percentage from right/bottom
       const xPercent = ((window.innerWidth - newX) / window.innerWidth) * 100;
       const yPercent = ((window.innerHeight - newY) / window.innerHeight) * 100;
-      
+
       // Clamp to screen bounds
       const clampedX = Math.max(2, Math.min(98, xPercent));
       const clampedY = Math.max(2, Math.min(98, yPercent));
-      
+
       fabButton.style.right = `${clampedX}%`;
       fabButton.style.bottom = `${clampedY}%`;
     }
@@ -800,18 +921,18 @@ function setupFABEvents(): void {
   function handleDragEnd(): void {
     document.removeEventListener('mousemove', handleDrag);
     document.removeEventListener('mouseup', handleDragEnd);
-    
+
     fabButton?.classList.remove('dragging');
-    
+
     if (isDragging && fabButton) {
       // Save new position
       const style = fabButton.style;
       const x = parseFloat(style.right) || 5;
       const y = parseFloat(style.bottom) || 10;
-      
+
       saveFABPosition(x, y);
     }
-    
+
     isDragging = false;
   }
 
@@ -866,13 +987,13 @@ async function showMiniPopup(): Promise<void> {
   const fabRect = fabButton.getBoundingClientRect();
   const popupWidth = 288; // Match the CSS width
   const popupGap = 12;
-  
+
   // Determine if popup should appear above/below and left/right of FAB
   const spaceBelow = window.innerHeight - fabRect.bottom;
   const spaceAbove = fabRect.top;
   const spaceRight = window.innerWidth - fabRect.right;
   const spaceLeft = fabRect.left;
-  
+
   // Horizontal positioning
   if (spaceRight >= popupWidth + popupGap) {
     // Position to the right of FAB
@@ -911,9 +1032,9 @@ async function showMiniPopup(): Promise<void> {
       <div class="slime-spinner"></div>
     </div>
   `;
-  
+
   miniPopup.classList.add('visible');
-  
+
   // Setup settings button
   const settingsBtn = miniPopup.querySelector('.slime-popup-settings');
   settingsBtn?.addEventListener('click', () => {
@@ -1040,8 +1161,8 @@ function setupPopupEvents(rules: FillRule[], activeDefaultId: string | null): vo
 
 // Show context menu for a rule (set/unset default)
 function showRuleContextMenu(
-  rule: FillRule, 
-  activeDefaultId: string | null, 
+  rule: FillRule,
+  activeDefaultId: string | null,
   event: MouseEvent,
   allRules: FillRule[]
 ): void {
@@ -1076,7 +1197,7 @@ function showRuleContextMenu(
     e.preventDefault();
     e.stopPropagation();
     menu?.remove();
-    
+
     if (isDefault) {
       // Remove default
       showConfirmDialog(
@@ -1093,10 +1214,10 @@ function showRuleContextMenu(
     } else {
       // Set as default
       const existingDefault = allRules.find((r) => r.id === activeDefaultId);
-      const warningText = existingDefault 
+      const warningText = existingDefault
         ? `This will replace "${existingDefault.name}" as the default.`
         : null;
-      
+
       showConfirmDialog(
         `Set "${rule.name}" as default for pattern: ${rule.urlPattern}?`,
         warningText,
@@ -1130,8 +1251,8 @@ function showConfirmDialog(
 ): void {
   if (!miniPopup) return;
 
-  const warningHtml = warning 
-    ? `<div class="slime-confirm-warning">${escapeHtml(warning)}</div>` 
+  const warningHtml = warning
+    ? `<div class="slime-confirm-warning">${escapeHtml(warning)}</div>`
     : '';
 
   miniPopup.innerHTML = `
@@ -1168,7 +1289,7 @@ function hideMiniPopup(): void {
 // Update FAB position from settings
 function updateFABPosition(): void {
   if (!fabButton || !currentSettings) return;
-  
+
   fabButton.style.right = `${currentSettings.position.x}%`;
   fabButton.style.bottom = `${currentSettings.position.y}%`;
 }
@@ -1176,17 +1297,17 @@ function updateFABPosition(): void {
 // Save FAB position
 async function saveFABPosition(x: number, y: number): Promise<void> {
   if (!currentSettings) return;
-  
+
   const newSettings: FABSettings = {
     ...currentSettings,
     position: { x, y },
   };
-  
+
   await chrome.runtime.sendMessage({
     type: 'SAVE_FAB_SETTINGS',
     settings: newSettings,
   });
-  
+
   currentSettings = newSettings;
 }
 
@@ -1224,10 +1345,10 @@ async function initializeFAB(): Promise<void> {
   try {
     // Get FAB settings from background
     const response = await chrome.runtime.sendMessage({ type: 'GET_FAB_SETTINGS' });
-    
+
     if (response?.settings) {
       currentSettings = response.settings;
-      
+
       if (currentSettings?.enabled) {
         showFAB();
         updateFABPosition();
@@ -1271,8 +1392,8 @@ document.addEventListener('keydown', async (e) => {
   if (!modifierPressed) return;
 
   // Check the key (case insensitive)
-  const keyPressed = e.key.toLowerCase() === shortcut.key.toLowerCase() || 
-                     e.code === `Key${shortcut.key.toUpperCase()}`;
+  const keyPressed = e.key.toLowerCase() === shortcut.key.toLowerCase() ||
+    e.code === `Key${shortcut.key.toUpperCase()}`;
 
   if (!keyPressed) return;
 
