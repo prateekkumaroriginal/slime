@@ -33,12 +33,41 @@ export interface FieldMapping {
   postActions?: PostAction[]; // Chain of actions to execute after this field fills successfully
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Repeat Group Types (for filling multiple similar form rows)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Field definition within a repeat group (defines what to target, not the value)
+export interface RepeatGroupField {
+  id: string;
+  label: string;              // Display name: "Name", "Age", "Gender"
+  selector: string;           // CSS selector relative to row: "input[name*='name']"
+  matchType: MatchType;       // Usually 'querySelector' for repeat groups
+}
+
+// A single row of data to fill
+export interface RowData {
+  id: string;
+  values: Record<string, string>;  // fieldId -> value to fill
+}
+
+// Repeat group for filling multiple similar form rows
+export interface RepeatGroup {
+  id: string;
+  name: string;                    // Display name: "User Entries"
+  rowSelector: string;             // CSS selector for row containers: ".user-row"
+  fields: RepeatGroupField[];      // Column definitions
+  rows: RowData[];                 // Data rows to fill
+  postActions?: PostAction[];      // Actions after all rows filled
+}
+
 // A fill rule configuration
 export interface FillRule {
   id: string;
   name: string; // Display name (button label)
   urlPattern: string; // URL pattern to match, e.g., "*://example.com/*"
   fields: FieldMapping[];
+  repeatGroups?: RepeatGroup[]; // Optional repeat groups for filling multiple similar rows
   enabled: boolean;
   incrementCounter: number; // Current increment value for {{inc}}
   isArchived?: boolean; // Whether the rule is archived
