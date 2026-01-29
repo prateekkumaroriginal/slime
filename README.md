@@ -10,11 +10,14 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 - **Smart content generation** — Generate realistic titles and descriptions for textareas
 - **Image fill support** — Store images and auto-fill file inputs with them
 - **Post-actions** — Chain actions (click, focus, key press, wait) after filling fields or completing rules
+- **Field-level post-actions** — Add post-actions to individual fields (e.g., press Tab after filling email)
 - **Floating Action Button (FAB)** — Quick-access button on pages with configurable position and keyboard shortcut
 - **Default rules** — Set a default rule per URL pattern for one-click filling via FAB
 - **Multiple rules** — Create different fill profiles (e.g., Admin, User, Tester) and switch between them
-- **URL patterns** — Rules can be scoped to specific sites or apply globally
-- **Rule management** — Archive, restore, import/export, and duplicate rules
+- **Collections** — Organize rules into collections (folders) for better management
+- **URL patterns** — Rules can be scoped to specific sites or apply globally (supports glob and regex patterns)
+- **Rule management** — Archive, restore, import/export, duplicate, and reorder rules via drag-and-drop
+- **Field management** — Duplicate and reorder field mappings via drag-and-drop
 
 ## Installation
 
@@ -22,7 +25,7 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 
 1. **Download the latest release**
    
-   [**Download slime-v2.0.0.zip**](https://github.com/prateekkumaroriginal/slime/releases/download/v2.0.0/slime.zip)
+   [**Download slime-v3.0.0.zip**](https://github.com/prateekkumaroriginal/slime/releases/download/v3.0.0/slime.zip)
 
 2. **Extract the zip** to a folder on your computer
 
@@ -76,6 +79,17 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
    - Add field mappings with selectors and values
 4. **Fill forms:** Navigate to a matching page, click the extension, and select your rule
 
+### URL Patterns
+
+Rules can be scoped to specific sites using URL patterns:
+
+| Pattern | Description |
+|---------|-------------|
+| `*` | Match all URLs |
+| `*://example.com/*` | Match any protocol on example.com |
+| `https://example.com/login` | Match exact URL |
+| `/^https:\/\/.*\.example\.com/` | Regex pattern (wrap in `/`) |
+
 ### Example Rule
 
 Create a rule to fill a signup form:
@@ -103,7 +117,7 @@ Dynamic content using placeholders:
 | `{{random:5}}` | Random alphanumeric string of length | xK9pL |
 | `{{pick:a,b,c}}` | Random pick from comma-separated list | b |
 | `{{date:YYYY-MM-DD}}` | Current date/time formatted | 2025-01-07 |
-| `{{regex:[A-Z]{2}\d{3}}}` | Generate string from regex pattern | AB123 |
+| `{{regex:[[A-Z]{2}\d{3}]}}` | Generate string from regex pattern | AB123 |
 
 #### Date Format Tokens
 
@@ -112,10 +126,15 @@ Dynamic content using placeholders:
 | `YYYY` | 4-digit year | 2025 |
 | `YY` | 2-digit year | 25 |
 | `MM` | Month (zero-padded) | 01-12 |
+| `M` | Month (no padding) | 1-12 |
 | `DD` | Day (zero-padded) | 01-31 |
+| `D` | Day (no padding) | 1-31 |
 | `HH` | Hour 24h (zero-padded) | 00-23 |
+| `H` | Hour 24h (no padding) | 0-23 |
 | `mm` | Minutes (zero-padded) | 00-59 |
+| `m` | Minutes (no padding) | 0-59 |
 | `ss` | Seconds (zero-padded) | 00-59 |
+| `s` | Seconds (no padding) | 0-59 |
 
 ### Title
 Generates meaningful English phrases. Perfect for form titles, subject lines, and headings.
@@ -135,10 +154,28 @@ Fill file input fields with stored images. Perfect for avatar uploads, document 
 - Store images in the extension's Image Storage (accessible from options page)
 - Select a stored image to use when the field is filled
 - Supports common formats: PNG, JPEG, GIF, WebP
+- Configurable storage limit (default: 10MB)
+
+## Collections
+
+Organize your rules into collections (folders) for better management.
+
+- **Create collections** — Click "New Collection" in the sidebar
+- **Move rules** — Drag rules to collections or use the context menu
+- **Export collections** — Export all rules in a collection at once
+- **Delete collections** — Deleting a collection also deletes its rules
+
+Built-in collections:
+- **All Rules** — View all active rules across all collections
+- **Default** — Rules without a specific collection
 
 ## Post-Actions
 
 Chain actions to execute after a field fills or after all fields in a rule complete. Useful for triggering form submissions, navigating to next fields, or waiting for async operations.
+
+Post-actions can be added at two levels:
+- **Field-level** — Execute after a specific field is filled (e.g., press Tab to move to next field)
+- **Rule-level** — Execute after all fields complete (e.g., click Submit button)
 
 | Action | Description | Parameters |
 |--------|-------------|------------|
@@ -148,6 +185,8 @@ Chain actions to execute after a field fills or after all fields in a rule compl
 | Wait | Delay before next action | Duration in milliseconds |
 
 **Example:** After filling a search field, press Enter to submit, then wait 500ms for results.
+
+Post-actions support drag-and-drop reordering.
 
 ## Floating Action Button (FAB)
 
