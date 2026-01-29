@@ -15,6 +15,7 @@ import {
   Upload,
   X,
   Copy,
+  Repeat,
 } from 'lucide-react';
 import {
   DndContext,
@@ -38,6 +39,9 @@ import type {
   PostAction,
   PostActionType,
   StoredImage,
+  RepeatGroup,
+  RepeatGroupField,
+  RowData,
 } from '@/shared/types';
 import {
   generateId,
@@ -166,6 +170,165 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     setFormData((prev) => ({
       ...prev,
       postActions: prev.postActions?.filter((a) => a.id !== id),
+    }));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Repeat Groups Management
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function addRepeatGroup() {
+    const newGroup: RepeatGroup = {
+      id: generateId(),
+      name: 'New Repeat Group',
+      rowSelector: '',
+      fields: [],
+      rows: [],
+    };
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: [...(prev.repeatGroups ?? []), newGroup],
+    }));
+  }
+
+  function updateRepeatGroup(groupId: string, updates: Partial<RepeatGroup>) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId ? { ...g, ...updates } : g
+      ),
+    }));
+  }
+
+  function removeRepeatGroup(groupId: string) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.filter((g) => g.id !== groupId),
+    }));
+  }
+
+  function addRepeatGroupField(groupId: string) {
+    const newField: RepeatGroupField = {
+      id: generateId(),
+      label: '',
+      selector: '',
+      matchType: 'querySelector',
+    };
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? { ...g, fields: [...g.fields, newField] }
+          : g
+      ),
+    }));
+  }
+
+  function updateRepeatGroupField(
+    groupId: string,
+    fieldId: string,
+    updates: Partial<RepeatGroupField>
+  ) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              fields: g.fields.map((f) =>
+                f.id === fieldId ? { ...f, ...updates } : f
+              ),
+            }
+          : g
+      ),
+    }));
+  }
+
+  function removeRepeatGroupField(groupId: string, fieldId: string) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              fields: g.fields.filter((f) => f.id !== fieldId),
+              // Also remove this field's values from all rows
+              rows: g.rows.map((row) => {
+                const newValues = { ...row.values };
+                delete newValues[fieldId];
+                return { ...row, values: newValues };
+              }),
+            }
+          : g
+      ),
+    }));
+  }
+
+  function addRepeatGroupRow(groupId: string) {
+    const group = formData.repeatGroups?.find((g) => g.id === groupId);
+    if (!group) return;
+
+    // Create a new row with empty values for each field
+    const values: Record<string, string> = {};
+    for (const field of group.fields) {
+      values[field.id] = '';
+    }
+
+    const newRow: RowData = {
+      id: generateId(),
+      values,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId ? { ...g, rows: [...g.rows, newRow] } : g
+      ),
+    }));
+  }
+
+  function updateRepeatGroupRowValue(
+    groupId: string,
+    rowId: string,
+    fieldId: string,
+    value: string
+  ) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              rows: g.rows.map((row) =>
+                row.id === rowId
+                  ? { ...row, values: { ...row.values, [fieldId]: value } }
+                  : row
+              ),
+            }
+          : g
+      ),
+    }));
+  }
+
+  function removeRepeatGroupRow(groupId: string, rowId: string) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? { ...g, rows: g.rows.filter((r) => r.id !== rowId) }
+          : g
+      ),
+    }));
+  }
+
+  function reorderRepeatGroupRows(groupId: string, oldIndex: number, newIndex: number) {
+    setFormData((prev) => ({
+      ...prev,
+      repeatGroups: prev.repeatGroups?.map((g) =>
+        g.id === groupId
+          ? { ...g, rows: arrayMove(g.rows, oldIndex, newIndex) }
+          : g
+      ),
     }));
   }
 
@@ -316,6 +479,52 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
               </div>
             </SortableContext>
           </DndContext>
+        )}
+      </Card>
+
+      {/* Repeat Groups */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Repeat className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-lg font-medium text-zinc-200">Repeat Groups</h3>
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={addRepeatGroup}>
+            <Plus className="w-4 h-4" />
+            Add Group
+          </Button>
+        </div>
+
+        {(!formData.repeatGroups || formData.repeatGroups.length === 0) ? (
+          <p className="text-center py-8 text-zinc-500">
+            No repeat groups yet. Use repeat groups to fill multiple similar form rows (like multiple user entries).
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {formData.repeatGroups.map((group) => (
+              <RepeatGroupCard
+                key={group.id}
+                group={group}
+                onUpdate={(updates) => updateRepeatGroup(group.id, updates)}
+                onRemove={() => removeRepeatGroup(group.id)}
+                onAddField={() => addRepeatGroupField(group.id)}
+                onUpdateField={(fieldId, updates) =>
+                  updateRepeatGroupField(group.id, fieldId, updates)
+                }
+                onRemoveField={(fieldId) =>
+                  removeRepeatGroupField(group.id, fieldId)
+                }
+                onAddRow={() => addRepeatGroupRow(group.id)}
+                onUpdateRowValue={(rowId, fieldId, value) =>
+                  updateRepeatGroupRowValue(group.id, rowId, fieldId, value)
+                }
+                onRemoveRow={(rowId) => removeRepeatGroupRow(group.id, rowId)}
+                onReorderRows={(oldIndex, newIndex) =>
+                  reorderRepeatGroupRows(group.id, oldIndex, newIndex)
+                }
+              />
+            ))}
+          </div>
         )}
       </Card>
 
@@ -1000,6 +1209,348 @@ function FieldPostActionRow({ action, onUpdate, onRemove }: FieldPostActionRowPr
       >
         <Trash2 className="w-3 h-3" />
       </Button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repeat Group Card Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RepeatGroupCardProps {
+  group: RepeatGroup;
+  onUpdate: (updates: Partial<RepeatGroup>) => void;
+  onRemove: () => void;
+  onAddField: () => void;
+  onUpdateField: (fieldId: string, updates: Partial<RepeatGroupField>) => void;
+  onRemoveField: (fieldId: string) => void;
+  onAddRow: () => void;
+  onUpdateRowValue: (rowId: string, fieldId: string, value: string) => void;
+  onRemoveRow: (rowId: string) => void;
+  onReorderRows: (oldIndex: number, newIndex: number) => void;
+}
+
+function RepeatGroupCard({
+  group,
+  onUpdate,
+  onRemove,
+  onAddField,
+  onUpdateField,
+  onRemoveField,
+  onAddRow,
+  onUpdateRowValue,
+  onRemoveRow,
+  onReorderRows,
+}: RepeatGroupCardProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isFieldsExpanded, setIsFieldsExpanded] = useState(true);
+  const [isRowsExpanded, setIsRowsExpanded] = useState(true);
+
+  // Drag and drop sensors for data rows
+  const rowSensors = useSensors(useSensor(SmartPointerSensor));
+
+  function handleRowDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = group.rows.findIndex((r) => r.id === active.id);
+      const newIndex = group.rows.findIndex((r) => r.id === over.id);
+      onReorderRows(oldIndex, newIndex);
+    }
+  }
+
+  // Chunk fields into groups of 3 for data rows display
+  const fieldChunks: RepeatGroupField[][] = [];
+  for (let i = 0; i < group.fields.length; i += 3) {
+    fieldChunks.push(group.fields.slice(i, i + 3));
+  }
+
+  return (
+    <div className="bg-zinc-800 rounded-lg border border-zinc-700">
+      {/* Header */}
+      <div className={`flex items-center justify-between p-3 ${isExpanded ? 'border-b border-zinc-700' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 text-left"
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-zinc-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-zinc-400" />
+          )}
+          <span className="font-medium text-zinc-200">{group.name || 'Unnamed Group'}</span>
+          <span className="text-xs text-zinc-500">
+            ({group.fields.length} fields, {group.rows.length} rows)
+          </span>
+        </button>
+        <Button
+          type="button"
+          variant="danger"
+          size="icon-sm"
+          onClick={onRemove}
+          title="Delete group"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {isExpanded && (
+        <div className="p-4 space-y-4">
+          {/* Group Settings - matching FieldMapping style */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Group Name</label>
+              <input
+                type="text"
+                value={group.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                placeholder="e.g., User Entries"
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-1">Row Selector</label>
+              <input
+                type="text"
+                value={group.rowSelector}
+                onChange={(e) => onUpdate({ rowSelector: e.target.value })}
+                placeholder=".user-row, tr.data-row"
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              />
+              <p className="text-xs text-zinc-500 mt-1">CSS selector for each row container</p>
+            </div>
+          </div>
+
+          {/* Field Definitions - Collapsible */}
+          <div className="border-t border-zinc-700 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <button
+                type="button"
+                onClick={() => setIsFieldsExpanded(!isFieldsExpanded)}
+                className="flex items-center gap-2 text-left"
+              >
+                {isFieldsExpanded ? (
+                  <ChevronDown className="w-3 h-3 text-zinc-400" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 text-zinc-400" />
+                )}
+                <h4 className="text-sm font-medium text-zinc-300">Field Definitions (columns)</h4>
+                {group.fields.length > 0 && (
+                  <span className="text-xs text-zinc-500">({group.fields.length})</span>
+                )}
+              </button>
+              {isFieldsExpanded && (
+                <Button type="button" variant="secondary" size="sm" onClick={onAddField}>
+                  <Plus className="w-3 h-3" />
+                  Add Field
+                </Button>
+              )}
+            </div>
+
+            {isFieldsExpanded && (
+              <>
+                {group.fields.length === 0 ? (
+                  <p className="text-center py-4 text-zinc-500 text-sm">
+                    No fields defined. Add fields to define what form elements to fill in each row.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {group.fields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700"
+                      >
+                        {/* Field number badge and delete button */}
+                        <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
+                          <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
+                            {index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onRemoveField(field.id)}
+                            className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md rounded-bl-md transition-colors"
+                            title="Remove field"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Field inputs: Match By, Selector, Label */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Select
+                            label="Match By"
+                            value={field.matchType}
+                            onChange={(value) =>
+                              onUpdateField(field.id, { matchType: value as MatchType })
+                            }
+                            options={matchTypeOptions}
+                          />
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1">Selector</label>
+                            <input
+                              type="text"
+                              value={field.selector}
+                              onChange={(e) =>
+                                onUpdateField(field.id, { selector: e.target.value })
+                              }
+                              placeholder="input[name*='name']"
+                              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1">Label</label>
+                            <input
+                              type="text"
+                              value={field.label}
+                              onChange={(e) =>
+                                onUpdateField(field.id, { label: e.target.value })
+                              }
+                              placeholder="Name"
+                              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Data Rows - Collapsible */}
+          {group.fields.length > 0 && (
+            <div className="border-t border-zinc-700 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  type="button"
+                  onClick={() => setIsRowsExpanded(!isRowsExpanded)}
+                  className="flex items-center gap-2 text-left"
+                >
+                  {isRowsExpanded ? (
+                    <ChevronDown className="w-3 h-3 text-zinc-400" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 text-zinc-400" />
+                  )}
+                  <h4 className="text-sm font-medium text-zinc-300">Data Rows</h4>
+                  {group.rows.length > 0 && (
+                    <span className="text-xs text-zinc-500">({group.rows.length})</span>
+                  )}
+                </button>
+                {isRowsExpanded && (
+                  <Button type="button" variant="secondary" size="sm" onClick={onAddRow}>
+                    <Plus className="w-3 h-3" />
+                    Add Row
+                  </Button>
+                )}
+              </div>
+
+              {isRowsExpanded && (
+                <>
+                  {group.rows.length === 0 ? (
+                    <p className="text-center py-4 text-zinc-500 text-sm">
+                      No data rows yet. Add rows to define the values to fill in each form row.
+                    </p>
+                  ) : (
+                    <DndContext sensors={rowSensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
+                      <SortableContext items={group.rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-3">
+                          {group.rows.map((row, rowIndex) => (
+                            <DataRowCard
+                              key={row.id}
+                              row={row}
+                              rowIndex={rowIndex}
+                              fieldChunks={fieldChunks}
+                              onUpdateValue={(fieldId, value) => onUpdateRowValue(row.id, fieldId, value)}
+                              onRemove={() => onRemoveRow(row.id)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
+
+                  {group.rows.length > 0 && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Tip: Values support templates like {"{{random:5}}"}, {"{{pick:a,b,c}}"}, or {"{{inc}}"}.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data Row Card Component (Sortable)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DataRowCardProps {
+  row: RowData;
+  rowIndex: number;
+  fieldChunks: RepeatGroupField[][];
+  onUpdateValue: (fieldId: string, value: string) => void;
+  onRemove: () => void;
+}
+
+function DataRowCard({ row, rowIndex, fieldChunks, onUpdateValue, onRemove }: DataRowCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 cursor-grab active:cursor-grabbing touch-none"
+    >
+      {/* Row number badge and delete button */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
+        <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
+          {rowIndex + 1}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md rounded-bl-md transition-colors"
+          title="Remove row"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Value inputs - max 3 per row */}
+      <div className="space-y-4">
+        {fieldChunks.map((chunk, chunkIndex) => (
+          <div key={chunkIndex} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {chunk.map((field) => (
+              <div key={field.id}>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  {field.label || '(unnamed)'}
+                </label>
+                <input
+                  type="text"
+                  value={row.values[field.id] ?? ''}
+                  onChange={(e) => onUpdateValue(field.id, e.target.value)}
+                  placeholder={field.label || 'Value'}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
