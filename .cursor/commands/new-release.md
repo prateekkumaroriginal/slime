@@ -32,10 +32,16 @@ Use this command to create a new GitHub release with tag and release notes.
    ## What's Changed
    
    ### Features
-   - Feature 1
+   - Add new feature X (#PR)
    
-   ### Fixes  
-   - Fix 1
+   ### Improvements
+   - Improve performance of Y
+   
+   ### Fixes
+   - Fix bug in Z (#PR)
+   
+   ### Breaking Changes
+   - Changed API for X (if applicable)
    
    **Full Changelog**: https://github.com/USER/REPO/compare/v<prev>...v<version>
    EOF
