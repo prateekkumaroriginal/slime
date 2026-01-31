@@ -51,6 +51,18 @@ export interface RowData {
   values: Record<string, string>;  // fieldId -> value to fill
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Variant Types (for multiple value sets per rule)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// A variant stores alternative values for fields and repeat groups
+export interface Variant {
+  id: string;
+  name: string;  // e.g., "Prateek", "Arpit"
+  fieldValues: Record<string, string>;  // fieldId -> value
+  repeatGroupData?: Record<string, RowData[]>;  // groupId -> rows
+}
+
 // Repeat group for filling multiple similar form rows
 export interface RepeatGroup {
   id: string;
@@ -73,6 +85,8 @@ export interface FillRule {
   isArchived?: boolean; // Whether the rule is archived
   collectionId?: string; // Reference to collection (null/undefined = "Default" collection)
   postActions?: PostAction[]; // Chain of actions to execute after all fields complete successfully
+  variants?: Variant[]; // Optional variants for different value sets
+  activeVariantId?: string; // Currently selected variant ID
   createdAt: number;
   updatedAt: number;
 }
@@ -83,11 +97,18 @@ export interface StorageData {
 }
 
 // Message types for communication between popup/background/content
-export type MessageType = 'FILL_FORM' | 'GET_RULES' | 'FILL_COMPLETE';
+export type MessageType = 'FILL_FORM' | 'GET_RULES' | 'FILL_COMPLETE' | 'SET_ACTIVE_VARIANT';
 
 export interface FillFormMessage {
   type: 'FILL_FORM';
   ruleId: string;
+  variantId?: string; // Optional variant to use for fill
+}
+
+export interface SetActiveVariantMessage {
+  type: 'SET_ACTIVE_VARIANT';
+  ruleId: string;
+  variantId: string;
 }
 
 export interface FillCompleteMessage {
@@ -97,7 +118,7 @@ export interface FillCompleteMessage {
   errors?: string[];
 }
 
-export type ExtensionMessage = FillFormMessage | FillCompleteMessage;
+export type ExtensionMessage = FillFormMessage | FillCompleteMessage | SetActiveVariantMessage;
 
 // Template placeholder types
 export type PlaceholderType = 'inc' | 'random' | 'pick' | 'date' | 'regex' | 'title' | 'desc';

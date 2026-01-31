@@ -15,9 +15,10 @@ interface SelectProps {
   className?: string;
   children?: ReactNode; // Custom trigger
   dropdownClassName?: string;
+  disabled?: boolean;
 }
 
-export default function Select({ label, value, options, onChange, className = '', children, dropdownClassName = '' }: SelectProps) {
+export default function Select({ label, value, options, onChange, className = '', children, dropdownClassName = '', disabled = false }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,6 +38,7 @@ export default function Select({ label, value, options, onChange, className = ''
   }, []);
 
   function handleToggle() {
+    if (disabled) return;
     if (!isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -64,8 +66,13 @@ export default function Select({ label, value, options, onChange, className = ''
         ) : (
           <button
             type="button"
+            disabled={disabled}
             className={`w-full px-3 py-2 bg-zinc-900 border rounded-lg text-zinc-100 text-sm text-left flex items-center justify-between gap-2 transition-colors ${
-              isOpen ? 'border-emerald-500 ring-2 ring-emerald-500' : 'border-zinc-600 hover:border-zinc-500'
+              disabled
+                ? 'border-zinc-700 opacity-60 cursor-not-allowed'
+                : isOpen
+                ? 'border-emerald-500 ring-2 ring-emerald-500'
+                : 'border-zinc-600 hover:border-zinc-500'
             }`}
           >
             <span>{selectedOption?.label || 'Select...'}</span>

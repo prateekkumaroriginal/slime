@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Settings, Zap } from 'lucide-react';
+import { Settings, Zap, ChevronDown, Users } from 'lucide-react';
 import type { FillRule, FABSettings } from '@/shared/types';
-import { getRulesForUrl } from '@/storage/rules';
+import { getRulesForUrl, getActiveVariant } from '@/storage/rules';
 import { Button } from '@/components';
 
 export default function Popup() {
@@ -11,6 +11,10 @@ export default function Popup() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [fabEnabled, setFabEnabled] = useState(false);
   const [fabLoading, setFabLoading] = useState(true);
+  // Track selected variant per rule (ruleId -> variantId)
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  // Track which rule's variant dropdown is expanded
+  const [expandedRule, setExpandedRule] = useState<string | null>(null);
 
   useEffect(() => {
     loadRules();
@@ -55,6 +59,18 @@ export default function Popup() {
       // Get rules matching this URL
       const matchingRules = await getRulesForUrl(url);
       setRules(matchingRules);
+      
+      // Initialize selected variants from rules' activeVariantId
+      const initialVariants: Record<string, string> = {};
+      for (const rule of matchingRules) {
+        if (rule.variants && rule.variants.length > 0) {
+          const activeVariant = getActiveVariant(rule);
+          if (activeVariant) {
+            initialVariants[rule.id] = activeVariant.id;
+          }
+        }
+      }
+      setSelectedVariants(initialVariants);
     } catch (error) {
       console.error('Failed to load rules:', error);
     } finally {
@@ -67,9 +83,13 @@ export default function Popup() {
     setMessage(null);
 
     try {
+      // Get the selected variant ID for this rule (if any)
+      const variantId = selectedVariants[rule.id];
+      
       const response = await chrome.runtime.sendMessage({
         type: 'FILL_FORM',
         ruleId: rule.id,
+        variantId,
       });
 
       if (response?.success) {
@@ -86,6 +106,17 @@ export default function Popup() {
     } finally {
       setFilling(null);
     }
+  }
+
+  function handleVariantChange(ruleId: string, variantId: string) {
+    setSelectedVariants((prev) => ({ ...prev, [ruleId]: variantId }));
+  }
+
+  function getSelectedVariantName(rule: FillRule): string | null {
+    if (!rule.variants || rule.variants.length === 0) return null;
+    const selectedId = selectedVariants[rule.id];
+    const variant = rule.variants.find((v) => v.id === selectedId);
+    return variant?.name ?? rule.variants[0]?.name ?? null;
   }
 
   function openOptions() {
@@ -129,23 +160,87 @@ export default function Popup() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {rules.map((rule) => (
-            <button
-              key={rule.id}
-              onClick={() => handleFill(rule)}
-              disabled={filling === rule.id}
-              className="relative px-4 py-3 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-lg font-medium text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-wait border border-zinc-700 hover:border-zinc-600"
-            >
-              {filling === rule.id ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                </span>
-              ) : (
-                rule.name
-              )}
-            </button>
-          ))}
+        <div className="space-y-2">
+          {rules.map((rule) => {
+            const hasVariants = rule.variants && rule.variants.length > 0;
+            const selectedVariantName = getSelectedVariantName(rule);
+            const isExpanded = expandedRule === rule.id;
+
+            return (
+              <div key={rule.id} className="relative">
+                <div
+                  className={`flex items-stretch bg-zinc-800 rounded-lg border transition-all duration-150 ${
+                    filling === rule.id ? 'opacity-50 cursor-wait' : ''
+                  } ${isExpanded ? 'border-emerald-500' : 'border-zinc-700 hover:border-zinc-600'}`}
+                >
+                  {/* Main fill button */}
+                  <button
+                    onClick={() => handleFill(rule)}
+                    disabled={filling === rule.id}
+                    className="flex-1 px-4 py-3 text-left font-medium text-sm hover:bg-zinc-700 active:bg-zinc-600 rounded-l-lg transition-colors disabled:cursor-wait"
+                  >
+                    {filling === rule.id ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                        Filling...
+                      </span>
+                    ) : (
+                      <div>
+                        <div className="text-zinc-100">{rule.name}</div>
+                        {hasVariants && selectedVariantName && (
+                          <div className="text-xs text-emerald-400 mt-0.5 flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {selectedVariantName}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Variant dropdown toggle */}
+                  {hasVariants && (
+                    <button
+                      onClick={() => setExpandedRule(isExpanded ? null : rule.id)}
+                      disabled={filling === rule.id}
+                      className="px-3 border-l border-zinc-700 hover:bg-zinc-700 active:bg-zinc-600 rounded-r-lg transition-colors disabled:cursor-wait"
+                      title="Select variant"
+                    >
+                      <ChevronDown
+                        className={`w-4 h-4 text-zinc-400 transition-transform ${
+                          isExpanded ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {/* Variant dropdown */}
+                {hasVariants && isExpanded && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden">
+                    {rule.variants!.map((variant) => {
+                      const isSelected = selectedVariants[rule.id] === variant.id;
+                      return (
+                        <button
+                          key={variant.id}
+                          onClick={() => {
+                            handleVariantChange(rule.id, variant.id);
+                            setExpandedRule(null);
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                            isSelected
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'text-zinc-300 hover:bg-zinc-700'
+                          }`}
+                        >
+                          {variant.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

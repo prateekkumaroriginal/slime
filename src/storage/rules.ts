@@ -10,6 +10,7 @@ import type {
   ImagesStorageData,
   Collection,
   CollectionsStorageData,
+  Variant,
 } from '@/shared/types';
 import {
   STORAGE_KEY,
@@ -49,6 +50,18 @@ const FieldMappingSchema = z.object({
   postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
 });
 
+const RowDataSchema = z.object({
+  id: z.string({ message: 'RowData id must be a string' }),
+  values: z.record(z.string(), z.string(), { message: 'RowData values must be a record of strings' }),
+});
+
+const VariantSchema = z.object({
+  id: z.string({ message: 'Variant id must be a string' }),
+  name: z.string({ message: 'Variant name must be a string' }),
+  fieldValues: z.record(z.string(), z.string(), { message: 'Variant fieldValues must be a record of strings' }),
+  repeatGroupData: z.record(z.string(), z.array(RowDataSchema), { message: 'Variant repeatGroupData must be a record of RowData arrays' }).optional(),
+});
+
 const FillRuleSchema = z.object({
   name: z.string({ message: 'Rule name must be a string' }),
   urlPattern: z.string({ message: 'urlPattern must be a string' }),
@@ -57,6 +70,8 @@ const FillRuleSchema = z.object({
   incrementCounter: z.number({ message: 'incrementCounter must be a number' }).optional(),
   collectionId: z.string({ message: 'collectionId must be a string' }).optional(),
   postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
+  variants: z.array(VariantSchema, { message: 'variants must be an array' }).optional(),
+  activeVariantId: z.string({ message: 'activeVariantId must be a string' }).optional(),
 });
 
 const ImportSchema = z.object({
@@ -332,20 +347,132 @@ export async function importRulesFromJson(jsonString: string): Promise<number> {
   const existingRules = await getRules();
   const now = Date.now();
 
-  const newRules: FillRule[] = validatedRules.map((rule) => ({
-    ...rule,
-    id: generateId(),
-    fields: rule.fields.map((f) => ({
-      ...f,
+  const newRules: FillRule[] = validatedRules.map((rule) => {
+    // Create mapping from old field IDs to new field IDs
+    const fieldIdMap = new Map<string, string>();
+    const newFields = rule.fields.map((f) => {
+      const newId = generateId();
+      fieldIdMap.set(f.id, newId);
+      return { ...f, id: newId };
+    });
+
+    // Generate new IDs for variants and update their fieldValues keys
+    const newVariants = rule.variants?.map((v) => {
+      // Remap fieldValues to use new field IDs
+      const newFieldValues: Record<string, string> = {};
+      for (const [oldFieldId, value] of Object.entries(v.fieldValues)) {
+        const newFieldId = fieldIdMap.get(oldFieldId) ?? oldFieldId;
+        newFieldValues[newFieldId] = value;
+      }
+
+      // Remap repeatGroupData keys and row IDs
+      const newRepeatGroupData = v.repeatGroupData
+        ? Object.fromEntries(
+            Object.entries(v.repeatGroupData).map(([groupId, rows]) => [
+              groupId, // groupId stays same as it references repeatGroup which gets new ID later
+              rows.map((row) => ({
+                id: generateId(),
+                values: row.values,
+              })),
+            ])
+          )
+        : undefined;
+
+      return {
+        ...v,
+        id: generateId(),
+        fieldValues: newFieldValues,
+        repeatGroupData: newRepeatGroupData,
+      };
+    });
+
+    return {
+      ...rule,
       id: generateId(),
-    })),
-    incrementCounter: rule.incrementCounter ?? 1,
-    createdAt: now,
-    updatedAt: now,
-  }));
+      fields: newFields,
+      variants: newVariants,
+      activeVariantId: undefined, // Reset active variant on import
+      incrementCounter: rule.incrementCounter ?? 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
 
   await saveRules([...existingRules, ...newRules]);
   return newRules.length;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Variant Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Add a new variant to a rule
+export async function addVariant(ruleId: string, variant: Variant): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (rule) {
+    rule.variants = [...(rule.variants ?? []), variant];
+    rule.updatedAt = Date.now();
+    await saveRules(rules);
+  }
+}
+
+// Update an existing variant
+export async function updateVariant(ruleId: string, variant: Variant): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (rule && rule.variants) {
+    const index = rule.variants.findIndex((v) => v.id === variant.id);
+    if (index !== -1) {
+      rule.variants[index] = variant;
+      rule.updatedAt = Date.now();
+      await saveRules(rules);
+    }
+  }
+}
+
+// Delete a variant from a rule
+export async function deleteVariant(ruleId: string, variantId: string): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (rule && rule.variants) {
+    rule.variants = rule.variants.filter((v) => v.id !== variantId);
+    // If the active variant was deleted, clear it or set to first available
+    if (rule.activeVariantId === variantId) {
+      rule.activeVariantId = rule.variants.length > 0 ? rule.variants[0].id : undefined;
+    }
+    rule.updatedAt = Date.now();
+    await saveRules(rules);
+  }
+}
+
+// Set the active variant for a rule
+export async function setActiveVariant(ruleId: string, variantId: string | undefined): Promise<void> {
+  const rules = await getRules();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (rule) {
+    rule.activeVariantId = variantId;
+    rule.updatedAt = Date.now();
+    await saveRules(rules);
+  }
+}
+
+// Get the active variant for a rule
+export function getActiveVariant(rule: FillRule): Variant | undefined {
+  if (!rule.variants || rule.variants.length === 0) {
+    return undefined;
+  }
+  
+  // If activeVariantId is set and valid, use it
+  if (rule.activeVariantId) {
+    const variant = rule.variants.find((v) => v.id === rule.activeVariantId);
+    if (variant) {
+      return variant;
+    }
+  }
+  
+  // Fallback to first variant if activeVariantId is not set or invalid
+  return rule.variants[0];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

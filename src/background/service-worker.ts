@@ -11,7 +11,8 @@ import {
   getActiveDefaultRuleId,
   getDefaultRuleMappings,
   getRules,
-  getImage
+  getImage,
+  setActiveVariant,
 } from '@/storage/rules';
 import type { FABSettings, DefaultRuleMapping, FillRule } from '@/shared/types';
 
@@ -19,6 +20,7 @@ import type { FABSettings, DefaultRuleMapping, FillRule } from '@/shared/types';
 interface FillFormRequest {
   type: 'FILL_FORM';
   ruleId: string;
+  variantId?: string;
 }
 
 interface UpdateIncrementRequest {
@@ -74,6 +76,12 @@ interface GetImageRequest {
   imageId: string;
 }
 
+interface SetActiveVariantRequest {
+  type: 'SET_ACTIVE_VARIANT';
+  ruleId: string;
+  variantId: string;
+}
+
 type ServiceWorkerMessage = 
   | FillFormRequest 
   | UpdateIncrementRequest
@@ -86,13 +94,14 @@ type ServiceWorkerMessage =
   | GetRulesForUrlRequest
   | GetAllDefaultMappingsRequest
   | OpenOptionsRequest
-  | GetImageRequest;
+  | GetImageRequest
+  | SetActiveVariantRequest;
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, _sender, sendResponse) => {
   switch (message.type) {
     case 'FILL_FORM':
-      handleFillForm(message.ruleId, sendResponse);
+      handleFillForm(message.ruleId, message.variantId, sendResponse);
       return true;
 
     case 'UPDATE_INCREMENT':
@@ -139,13 +148,17 @@ chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, _sender, se
       handleGetImage(message.imageId, sendResponse);
       return true;
 
+    case 'SET_ACTIVE_VARIANT':
+      handleSetActiveVariant(message.ruleId, message.variantId, sendResponse);
+      return true;
+
     default:
       return false;
   }
 });
 
 // Handle fill form request from popup
-async function handleFillForm(ruleId: string, sendResponse: (response: unknown) => void) {
+async function handleFillForm(ruleId: string, variantId: string | undefined, sendResponse: (response: unknown) => void) {
   try {
     const rule = await getRule(ruleId);
 
@@ -166,6 +179,7 @@ async function handleFillForm(ruleId: string, sendResponse: (response: unknown) 
     const response = await chrome.tabs.sendMessage(tab.id, {
       type: 'FILL_FORM',
       rule,
+      variantId,
     });
 
     sendResponse(response);
@@ -326,6 +340,17 @@ async function handleGetImage(imageId: string, sendResponse: (response: unknown)
   } catch (error) {
     console.error('[Slime] Failed to get image:', error);
     sendResponse({ image: null, error: String(error) });
+  }
+}
+
+// Handle set active variant
+async function handleSetActiveVariant(ruleId: string, variantId: string, sendResponse: (response: unknown) => void) {
+  try {
+    await setActiveVariant(ruleId, variantId);
+    sendResponse({ success: true });
+  } catch (error) {
+    console.error('[Slime] Failed to set active variant:', error);
+    sendResponse({ success: false, error: String(error) });
   }
 }
 

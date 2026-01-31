@@ -1,4 +1,4 @@
-import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage, RepeatGroup, MatchType } from '@/shared/types';
+import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage, RepeatGroup, MatchType, Variant, RowData } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -566,12 +566,51 @@ async function getImageFromBackground(imageId: string): Promise<StoredImage | nu
   }
 }
 
+// Get the active variant for a rule
+function getActiveVariant(rule: FillRule, overrideVariantId?: string): Variant | undefined {
+  if (!rule.variants || rule.variants.length === 0) {
+    return undefined;
+  }
+  
+  // Use override variant ID if provided (e.g., from popup selection)
+  const variantId = overrideVariantId ?? rule.activeVariantId;
+  
+  if (variantId) {
+    const variant = rule.variants.find((v) => v.id === variantId);
+    if (variant) {
+      return variant;
+    }
+  }
+  
+  // Fallback to first variant if activeVariantId is not set or invalid
+  return rule.variants[0];
+}
+
+// Get field value from variant or fall back to field's default value
+function getFieldValue(field: FieldMapping, _rule: FillRule, variant: Variant | undefined): string {
+  if (variant?.fieldValues[field.id] !== undefined) {
+    return variant.fieldValues[field.id];
+  }
+  return field.value;
+}
+
+// Get repeat group rows from variant or fall back to group's default rows
+function getRepeatGroupRows(group: RepeatGroup, variant: Variant | undefined): RowData[] {
+  if (variant?.repeatGroupData?.[group.id]) {
+    return variant.repeatGroupData[group.id];
+  }
+  return group.rows;
+}
+
 // Fill form fields based on a rule
-async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: string[] }> {
+async function fillForm(rule: FillRule, variantId?: string): Promise<{ filledCount: number; errors: string[] }> {
   let filledCount = 0;
   const errors: string[] = [];
   let currentIncrement = rule.incrementCounter;
   let allFieldsSuccessful = true;
+  
+  // Get the active variant (if any)
+  const activeVariant = getActiveVariant(rule, variantId);
 
   for (const field of rule.fields) {
     const element = findElement(field);
@@ -605,8 +644,11 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
       }
     } else {
       // Handle other value types (static, template, title, desc)
+      // Get value from variant or fall back to field's default value
+      const fieldValue = getFieldValue(field, rule, activeVariant);
+      
       // Generate value (handles templates)
-      const { value, newIncrement } = generateValue(field.value, currentIncrement);
+      const { value, newIncrement } = generateValue(fieldValue, currentIncrement);
       currentIncrement = newIncrement;
 
       fillSuccess = setElementValue(element, value);
@@ -656,7 +698,7 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
   // Fill repeat groups if any
   if (rule.repeatGroups && rule.repeatGroups.length > 0) {
     for (const group of rule.repeatGroups) {
-      const groupResult = await fillRepeatGroup(group);
+      const groupResult = await fillRepeatGroup(group, activeVariant);
       filledCount += groupResult.filledCount;
       errors.push(...groupResult.errors);
     }
@@ -718,7 +760,8 @@ function findElementInContainer(
 
 // Fill a repeat group (multiple similar form rows with predefined data)
 async function fillRepeatGroup(
-  group: RepeatGroup
+  group: RepeatGroup,
+  variant: Variant | undefined
 ): Promise<{ filledCount: number; errors: string[] }> {
   // Find all row containers on the page
   const rowElements = document.querySelectorAll(group.rowSelector);
@@ -726,14 +769,17 @@ async function fillRepeatGroup(
   let filledCount = 0;
   const errors: string[] = [];
   let allRowsSuccessful = true;
+  
+  // Get rows from variant or fall back to group's default rows
+  const dataRows = getRepeatGroupRows(group, variant);
 
   // Fill each data row into corresponding form row
-  for (let i = 0; i < group.rows.length; i++) {
-    const dataRow = group.rows[i];
+  for (let i = 0; i < dataRows.length; i++) {
+    const dataRow = dataRows[i];
     const formRow = rowElements[i];
 
     if (!formRow) {
-      errors.push(`[${group.name}] Form row ${i + 1} not found (only ${rowElements.length} rows exist on page)`);
+      errors.push(`[${group.name}] Form row ${i + 1} not found (only ${rowElements.length} rows exist on page, but ${dataRows.length} data rows configured)`);
       allRowsSuccessful = false;
       continue;
     }
@@ -778,9 +824,9 @@ async function fillRepeatGroup(
 }
 
 // Listen for messages from popup/background
-chrome.runtime.onMessage.addListener((message: ExtensionMessage & { rule?: FillRule; settings?: FABSettings }, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ExtensionMessage & { rule?: FillRule; settings?: FABSettings; variantId?: string }, _sender, sendResponse) => {
   if (message.type === 'FILL_FORM' && message.rule) {
-    fillForm(message.rule).then((result) => {
+    fillForm(message.rule, message.variantId).then((result) => {
       sendResponse({
         type: 'FILL_COMPLETE',
         success: result.errors.length === 0,

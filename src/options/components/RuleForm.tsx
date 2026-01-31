@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useEffectEvent,
+  useMemo,
 } from 'react';
 import {
   Plus,
@@ -16,6 +17,8 @@ import {
   X,
   Copy,
   Repeat,
+  Users,
+  Star,
 } from 'lucide-react';
 import {
   DndContext,
@@ -42,6 +45,7 @@ import type {
   RepeatGroup,
   RepeatGroupField,
   RowData,
+  Variant,
 } from '@/shared/types';
 import {
   generateId,
@@ -73,9 +77,87 @@ interface RuleFormProps {
   onPermanentDelete: (id: string) => void;
 }
 
+// Helper to ensure a rule always has at least a primary variant
+function ensurePrimaryVariant(rule: FillRule): FillRule {
+  if (rule.variants && rule.variants.length > 0) {
+    return rule;
+  }
+  
+  // Create primary variant from current field values
+  const fieldValues: Record<string, string> = {};
+  for (const field of rule.fields) {
+    fieldValues[field.id] = field.value;
+  }
+  
+  // Collect repeat group data
+  const repeatGroupData: Record<string, RowData[]> = {};
+  if (rule.repeatGroups) {
+    for (const group of rule.repeatGroups) {
+      repeatGroupData[group.id] = group.rows.map(row => ({
+        id: row.id,
+        values: { ...row.values },
+      }));
+    }
+  }
+  
+  const primaryVariant: Variant = {
+    id: generateId(),
+    name: 'Default',
+    fieldValues,
+    repeatGroupData: Object.keys(repeatGroupData).length > 0 ? repeatGroupData : undefined,
+  };
+  
+  return {
+    ...rule,
+    variants: [primaryVariant],
+    activeVariantId: primaryVariant.id,
+  };
+}
+
 export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, isArchivedSidebarOpen, onArchive, onRestore, onPermanentDelete }: RuleFormProps) {
-  const [formData, setFormData] = useState<FillRule>(rule);
+  // Ensure rule always has a primary variant - compute once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialRule = useMemo(() => ensurePrimaryVariant(rule), [rule.id]);
+  
+  const [formData, setFormData] = useState<FillRule>(initialRule);
   const formRef = useRef<HTMLFormElement>(null);
+  
+  // Variant editing state - always editing a variant (primary by default)
+  const [editingVariantId, setEditingVariantId] = useState<string>(initialRule.variants![0].id);
+  
+  // Reset state when rule changes (different rule selected for editing)
+  useEffect(() => {
+    setFormData(initialRule);
+    setEditingVariantId(initialRule.variants![0].id);
+  }, [initialRule]);
+  
+  // Get the currently editing variant object
+  const editingVariant = formData.variants?.find(v => v.id === editingVariantId) ?? formData.variants![0];
+  
+  // Primary variant is the first one in the array (always exists)
+  const primaryVariant = formData.variants![0];
+  const isPrimaryVariant = editingVariantId === primaryVariant.id;
+  
+  // Can edit structure only when editing the primary variant
+  const canEditStructure = isPrimaryVariant;
+  
+  // Variant dropdown is open
+  const [variantDropdownOpen, setVariantDropdownOpen] = useState(false);
+  const variantDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Close variant dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (variantDropdownRef.current && !variantDropdownRef.current.contains(event.target as Node)) {
+        setVariantDropdownOpen(false);
+      }
+    }
+    
+    if (variantDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [variantDropdownOpen]);
 
   // Ctrl+Enter to submit, Escape to cancel
   // Skip Escape handling if any sidebar is open (sidebars have priority)
@@ -106,7 +188,15 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
       valueType: 'static',
       value: '',
     };
-    setFormData((prev) => ({ ...prev, fields: [...prev.fields, newMapping] }));
+    setFormData((prev) => ({
+      ...prev,
+      fields: [...prev.fields, newMapping],
+      // Add empty value for new field to all variants
+      variants: prev.variants!.map((v) => ({
+        ...v,
+        fieldValues: { ...v.fieldValues, [newMapping.id]: '' },
+      })),
+    }));
   }
 
   function updateFieldMapping(id: string, updates: Partial<FieldMapping>) {
@@ -120,6 +210,11 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     setFormData((prev) => ({
       ...prev,
       fields: prev.fields.filter((f) => f.id !== id),
+      // Remove field value from all variants
+      variants: prev.variants!.map((v) => {
+        const { [id]: _, ...restFieldValues } = v.fieldValues;
+        return { ...v, fieldValues: restFieldValues };
+      }),
     }));
   }
 
@@ -142,8 +237,138 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
       const newFields = [...prev.fields];
       newFields.splice(index + 1, 0, duplicatedField);
 
-      return { ...prev, fields: newFields };
+      // Copy field values to all variants
+      const newVariants = prev.variants!.map((v) => ({
+        ...v,
+        fieldValues: {
+          ...v.fieldValues,
+          [duplicatedField.id]: v.fieldValues[id] ?? '',
+        },
+      }));
+
+      return { ...prev, fields: newFields, variants: newVariants };
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Variant Management
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Create a new variant from the primary variant's values
+  function createNewVariant(name: string) {
+    const fieldValues: Record<string, string> = {};
+    
+    // Copy from primary variant's values
+    for (const field of formData.fields) {
+      fieldValues[field.id] = primaryVariant.fieldValues[field.id] ?? field.value;
+    }
+
+    // Copy repeat group data from primary variant
+    const repeatGroupData: Record<string, RowData[]> = {};
+    if (formData.repeatGroups) {
+      for (const group of formData.repeatGroups) {
+        const sourceRows = primaryVariant.repeatGroupData?.[group.id] ?? group.rows;
+        repeatGroupData[group.id] = sourceRows.map(row => ({
+          id: generateId(),
+          values: { ...row.values },
+        }));
+      }
+    }
+
+    const newVariant: Variant = {
+      id: generateId(),
+      name,
+      fieldValues,
+      repeatGroupData: Object.keys(repeatGroupData).length > 0 ? repeatGroupData : undefined,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      variants: [...prev.variants!, newVariant],
+    }));
+
+    // Switch to editing the new variant
+    setEditingVariantId(newVariant.id);
+  }
+
+  // Update a variant's field value
+  function updateVariantFieldValue(variantId: string, fieldId: string, value: string) {
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants?.map((v) =>
+        v.id === variantId
+          ? { ...v, fieldValues: { ...v.fieldValues, [fieldId]: value } }
+          : v
+      ),
+    }));
+  }
+
+  // Delete a variant (cannot delete primary)
+  function deleteVariantById(variantId: string) {
+    // Cannot delete primary variant
+    if (variantId === primaryVariant.id) return;
+    
+    setFormData((prev) => {
+      const newVariants = prev.variants!.filter((v) => v.id !== variantId);
+      let newActiveVariantId = prev.activeVariantId;
+      
+      // If deleting the active variant, switch to primary
+      if (prev.activeVariantId === variantId) {
+        newActiveVariantId = newVariants[0].id;
+      }
+
+      return {
+        ...prev,
+        variants: newVariants,
+        activeVariantId: newActiveVariantId,
+      };
+    });
+
+    // If we were editing this variant, switch to primary
+    if (editingVariantId === variantId) {
+      setEditingVariantId(primaryVariant.id);
+    }
+  }
+
+  // Duplicate a variant
+  function duplicateVariant(variantId: string) {
+    const variantToDuplicate = formData.variants?.find((v) => v.id === variantId);
+    if (!variantToDuplicate) return;
+
+    const newVariant: Variant = {
+      ...variantToDuplicate,
+      id: generateId(),
+      name: `${variantToDuplicate.name} (copy)`,
+      fieldValues: { ...variantToDuplicate.fieldValues },
+      repeatGroupData: variantToDuplicate.repeatGroupData
+        ? Object.fromEntries(
+            Object.entries(variantToDuplicate.repeatGroupData).map(([groupId, rows]) => [
+              groupId,
+              rows.map((row) => ({ id: generateId(), values: { ...row.values } })),
+            ])
+          )
+        : undefined,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      variants: [...(prev.variants ?? []), newVariant],
+    }));
+
+    setEditingVariantId(newVariant.id);
+  }
+
+  // Set the active variant
+  function setActiveVariantId(variantId: string) {
+    setFormData((prev) => ({
+      ...prev,
+      activeVariantId: variantId,
+    }));
+  }
+
+  // Handle value change - always update the current variant
+  function handleFieldValueChange(fieldId: string, value: string) {
+    updateVariantFieldValue(editingVariantId, fieldId, value);
   }
 
   // Rule-level PostActions management
@@ -188,6 +413,14 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     setFormData((prev) => ({
       ...prev,
       repeatGroups: [...(prev.repeatGroups ?? []), newGroup],
+      // Initialize empty repeat group data for all variants
+      variants: prev.variants!.map((v) => ({
+        ...v,
+        repeatGroupData: {
+          ...v.repeatGroupData,
+          [newGroup.id]: [],
+        },
+      })),
     }));
   }
 
@@ -204,6 +437,15 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     setFormData((prev) => ({
       ...prev,
       repeatGroups: prev.repeatGroups?.filter((g) => g.id !== groupId),
+      // Remove repeat group data from all variants
+      variants: prev.variants!.map((v) => {
+        if (!v.repeatGroupData) return v;
+        const { [groupId]: _, ...restGroupData } = v.repeatGroupData;
+        return {
+          ...v,
+          repeatGroupData: Object.keys(restGroupData).length > 0 ? restGroupData : undefined,
+        };
+      }),
     }));
   }
 
@@ -279,10 +521,19 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
       values,
     };
 
+    // Add row to the current variant's repeatGroupData
     setFormData((prev) => ({
       ...prev,
-      repeatGroups: prev.repeatGroups?.map((g) =>
-        g.id === groupId ? { ...g, rows: [...g.rows, newRow] } : g
+      variants: prev.variants!.map((v) =>
+        v.id === editingVariantId
+          ? {
+              ...v,
+              repeatGroupData: {
+                ...v.repeatGroupData,
+                [groupId]: [...(v.repeatGroupData?.[groupId] ?? []), newRow],
+              },
+            }
+          : v
       ),
     }));
   }
@@ -293,41 +544,59 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
     fieldId: string,
     value: string
   ) {
+    // Update the current variant's repeatGroupData
     setFormData((prev) => ({
       ...prev,
-      repeatGroups: prev.repeatGroups?.map((g) =>
-        g.id === groupId
+      variants: prev.variants!.map((v) =>
+        v.id === editingVariantId
           ? {
-              ...g,
-              rows: g.rows.map((row) =>
-                row.id === rowId
-                  ? { ...row, values: { ...row.values, [fieldId]: value } }
-                  : row
-              ),
+              ...v,
+              repeatGroupData: {
+                ...v.repeatGroupData,
+                [groupId]: (v.repeatGroupData?.[groupId] ?? []).map((row) =>
+                  row.id === rowId
+                    ? { ...row, values: { ...row.values, [fieldId]: value } }
+                    : row
+                ),
+              },
             }
-          : g
+          : v
       ),
     }));
   }
 
   function removeRepeatGroupRow(groupId: string, rowId: string) {
+    // Remove row from the current variant's repeatGroupData
     setFormData((prev) => ({
       ...prev,
-      repeatGroups: prev.repeatGroups?.map((g) =>
-        g.id === groupId
-          ? { ...g, rows: g.rows.filter((r) => r.id !== rowId) }
-          : g
+      variants: prev.variants!.map((v) =>
+        v.id === editingVariantId
+          ? {
+              ...v,
+              repeatGroupData: {
+                ...v.repeatGroupData,
+                [groupId]: (v.repeatGroupData?.[groupId] ?? []).filter((r) => r.id !== rowId),
+              },
+            }
+          : v
       ),
     }));
   }
 
   function reorderRepeatGroupRows(groupId: string, oldIndex: number, newIndex: number) {
+    // Reorder rows in the current variant's repeatGroupData
     setFormData((prev) => ({
       ...prev,
-      repeatGroups: prev.repeatGroups?.map((g) =>
-        g.id === groupId
-          ? { ...g, rows: arrayMove(g.rows, oldIndex, newIndex) }
-          : g
+      variants: prev.variants!.map((v) =>
+        v.id === editingVariantId
+          ? {
+              ...v,
+              repeatGroupData: {
+                ...v.repeatGroupData,
+                [groupId]: arrayMove(v.repeatGroupData?.[groupId] ?? [], oldIndex, newIndex),
+              },
+            }
+          : v
       ),
     }));
   }
@@ -398,7 +667,120 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
   return (
     <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold text-zinc-200">{isNew ? 'Create New Rule' : 'Edit Rule'}</h2>
+          
+          {/* Variant Dropdown */}
+          <div className="relative" ref={variantDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setVariantDropdownOpen(!variantDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-zinc-800 border-zinc-600 hover:border-zinc-500 transition-colors"
+            >
+              <Users className="w-4 h-4 text-emerald-500" />
+              <span className="text-sm text-zinc-200">
+                {editingVariant.name}
+                {isPrimaryVariant && (
+                  <span className="ml-1.5 text-xs text-emerald-400">(primary)</span>
+                )}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${variantDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {variantDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
+                {/* Existing variants */}
+                <div className="py-1">
+                  {formData.variants!.map((variant, index) => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => {
+                        setEditingVariantId(variant.id);
+                        setVariantDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${
+                        editingVariantId === variant.id
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'text-zinc-300 hover:bg-zinc-700'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {variant.name}
+                        {index === 0 && (
+                          <span className="text-xs px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">primary</span>
+                        )}
+                      </span>
+                      {formData.activeVariantId === variant.id && (
+                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Divider */}
+                <div className="border-t border-zinc-700" />
+                
+                {/* Actions */}
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      createNewVariant(`Variant ${formData.variants!.length + 1}`);
+                      setVariantDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Variant
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicateVariant(editingVariantId);
+                      setVariantDropdownOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Duplicate Current
+                  </button>
+                  
+                  {formData.activeVariantId !== editingVariantId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveVariantId(editingVariantId);
+                        setVariantDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                    >
+                      <Star className="w-4 h-4" />
+                      Set as Default
+                    </button>
+                  )}
+                  
+                  {!isPrimaryVariant && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteVariantById(editingVariantId);
+                        setVariantDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Variant
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="flex items-center gap-2">
           {!isNew && formData.isArchived && (
             <Button type="button" variant="ghost" onClick={handleRestore} className="hover:text-green-400 hover:bg-green-500/20">
@@ -453,11 +835,18 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
 
       <Card>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-zinc-200">Field Mappings</h3>
-          <Button type="button" variant="secondary" size="sm" onClick={addFieldMapping}>
-            <Plus className="w-4 h-4" />
-            Add Field
-          </Button>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-medium text-zinc-200">Field Mappings</h3>
+            {!canEditStructure && (
+              <span className="text-xs text-zinc-500">(values only)</span>
+            )}
+          </div>
+          {canEditStructure && (
+            <Button type="button" variant="secondary" size="sm" onClick={addFieldMapping}>
+              <Plus className="w-4 h-4" />
+              Add Field
+            </Button>
+          )}
         </div>
 
         {formData.fields.length === 0 ? (
@@ -474,6 +863,9 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
                     onUpdate={(updates) => updateFieldMapping(field.id, updates)}
                     onRemove={() => removeFieldMapping(field.id)}
                     onDuplicate={() => duplicateFieldMapping(field.id)}
+                    editingVariant={editingVariant}
+                    onVariantValueChange={(value) => handleFieldValueChange(field.id, value)}
+                    canEditStructure={canEditStructure}
                   />
                 ))}
               </div>
@@ -488,11 +880,16 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
           <div className="flex items-center gap-2">
             <Repeat className="w-5 h-5 text-emerald-500" />
             <h3 className="text-lg font-medium text-zinc-200">Repeat Groups</h3>
+            {!canEditStructure && (
+              <span className="text-xs text-zinc-500">(data rows only)</span>
+            )}
           </div>
-          <Button type="button" variant="secondary" size="sm" onClick={addRepeatGroup}>
-            <Plus className="w-4 h-4" />
-            Add Group
-          </Button>
+          {canEditStructure && (
+            <Button type="button" variant="secondary" size="sm" onClick={addRepeatGroup}>
+              <Plus className="w-4 h-4" />
+              Add Group
+            </Button>
+          )}
         </div>
 
         {(!formData.repeatGroups || formData.repeatGroups.length === 0) ? (
@@ -522,6 +919,8 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
                 onReorderRows={(oldIndex, newIndex) =>
                   reorderRepeatGroupRows(group.id, oldIndex, newIndex)
                 }
+                canEditStructure={canEditStructure}
+                editingVariant={editingVariant}
               />
             ))}
           </div>
@@ -532,15 +931,19 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
       <Card>
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-zinc-200">PostActions (on complete)</h3>
-          <Button type="button" variant="secondary" size="sm" onClick={addPostAction}>
-            <Plus className="w-4 h-4" />
-            Add Action
-          </Button>
+          {canEditStructure && (
+            <Button type="button" variant="secondary" size="sm" onClick={addPostAction}>
+              <Plus className="w-4 h-4" />
+              Add Action
+            </Button>
+          )}
         </div>
 
         {(!formData.postActions || formData.postActions.length === 0) ? (
-          <p className="text-center py-8 text-zinc-500">No post-actions yet. These run after all fields fill successfully.</p>
-        ) : (
+          <p className="text-center py-8 text-zinc-500">
+            {canEditStructure ? 'No post-actions yet. These run after all fields fill successfully.' : 'No post-actions configured.'}
+          </p>
+        ) : canEditStructure ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={formData.postActions.map((a) => a.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
@@ -555,6 +958,12 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
               </div>
             </SortableContext>
           </DndContext>
+        ) : (
+          <div className="space-y-2 opacity-60">
+            {formData.postActions.map((action) => (
+              <PostActionRowReadOnly key={action.id} action={action} />
+            ))}
+          </div>
         )}
       </Card>
     </form>
@@ -567,6 +976,9 @@ interface FieldMappingRowProps {
   onUpdate: (updates: Partial<FieldMapping>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
+  editingVariant?: Variant | null;
+  onVariantValueChange?: (value: string) => void;
+  canEditStructure?: boolean;
 }
 
 const matchTypeOptions = [
@@ -619,7 +1031,7 @@ function generatePlaceholderValue(valueType: ValueType, minLength?: number, maxL
   return `{{${type}}}`;
 }
 
-function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: FieldMappingRowProps) {
+function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate, editingVariant, onVariantValueChange, canEditStructure = true }: FieldMappingRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const [postActionsExpanded, setPostActionsExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<StoredImage | null>(null);
@@ -627,6 +1039,20 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Get the current value - from variant if editing, otherwise from field
+  const currentValue = editingVariant 
+    ? (editingVariant.fieldValues[field.id] ?? '')
+    : field.value;
+  
+  // Handle value change - route to variant or field
+  function handleValueChange(value: string) {
+    if (editingVariant && onVariantValueChange) {
+      onVariantValueChange(value);
+    } else {
+      onUpdate({ value });
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -767,33 +1193,36 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className="relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 cursor-grab active:cursor-grabbing touch-none"
+      {...(canEditStructure ? { ...attributes, ...listeners } : {})}
+      className={`relative p-4 pt-10 bg-zinc-800 rounded-lg border border-zinc-700 ${
+        canEditStructure ? 'cursor-grab active:cursor-grabbing touch-none' : ''
+      }`}
     >
       {/* Top bar with number, duplicate and delete */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between">
         <span className="px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
           {index + 1}
         </span>
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
-            className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-fuchsia-400 hover:bg-fuchsia-500/20 rounded-bl-md transition-colors"
-            title="Duplicate Field"
-          >
-            <Copy className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md transition-colors"
-            title="Delete Field"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        {canEditStructure && (
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+              className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-fuchsia-400 hover:bg-fuchsia-500/20 rounded-bl-md transition-colors"
+              title="Duplicate Field"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md transition-colors"
+              title="Delete Field"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Form fields */}
@@ -805,6 +1234,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
             value={field.matchType}
             onChange={(value) => onUpdate({ matchType: value as MatchType })}
             options={matchTypeOptions}
+            disabled={!canEditStructure}
           />
 
           <div>
@@ -814,7 +1244,10 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
               value={field.selector}
               onChange={(e) => onUpdate({ selector: e.target.value })}
               placeholder={getSelectorPlaceholder(field.matchType)}
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+              disabled={!canEditStructure}
+              className={`w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono ${
+                !canEditStructure ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
             />
           </div>
 
@@ -823,6 +1256,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
             value={field.valueType}
             onChange={(value) => handleValueTypeChange(value as ValueType)}
             options={valueTypeOptions}
+            disabled={!canEditStructure}
           />
         </div>
 
@@ -947,8 +1381,8 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
             </label>
             <input
               type="text"
-              value={field.value}
-              onChange={(e) => onUpdate({ value: e.target.value })}
+              value={currentValue}
+              onChange={(e) => handleValueChange(e.target.value)}
               placeholder={field.valueType === 'template' ? 'user_{{inc}}@test.com' : 'john@example.com'}
               className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
@@ -970,7 +1404,7 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
                 <span className="text-emerald-400">({field.postActions.length})</span>
               )}
             </Button>
-            {postActionsExpanded && (
+            {postActionsExpanded && canEditStructure && (
               <Button type="button" variant="secondary" size="sm" onClick={addFieldPostAction}>
                 <Plus className="w-3 h-3" />
                 Add Action
@@ -981,8 +1415,10 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
           {postActionsExpanded && (
             <div className="mt-3">
               {(!field.postActions || field.postActions.length === 0) ? (
-                <p className="text-center py-4 text-zinc-500 text-xs">No post-actions yet. These run after this field fills successfully.</p>
-              ) : (
+                <p className="text-center py-4 text-zinc-500 text-xs">
+                  {canEditStructure ? 'No post-actions yet. These run after this field fills successfully.' : 'No post-actions configured.'}
+                </p>
+              ) : canEditStructure ? (
                 <DndContext sensors={postActionSensors} collisionDetection={closestCenter} onDragEnd={handleFieldPostActionDragEnd}>
                   <SortableContext items={field.postActions.map((a) => a.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-2">
@@ -997,6 +1433,12 @@ function FieldMappingRow({ field, index, onUpdate, onRemove, onDuplicate }: Fiel
                     </div>
                   </SortableContext>
                 </DndContext>
+              ) : (
+                <div className="space-y-2 opacity-60">
+                  {field.postActions.map((action) => (
+                    <FieldPostActionRowReadOnly key={action.id} action={action} />
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -1046,17 +1488,14 @@ function PostActionRow({ action, onUpdate, onRemove }: PostActionRowProps) {
       className="flex items-center gap-3 p-3 bg-zinc-800 rounded-lg border border-zinc-700"
     >
       {/* Drag handle */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
+      <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing touch-none"
+        className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 cursor-grab active:cursor-grabbing touch-none"
         title="Drag to reorder"
       >
         <Grip className="w-4 h-4" />
-      </Button>
+      </div>
 
       {/* Action type dropdown */}
       <Select
@@ -1113,6 +1552,35 @@ function PostActionRow({ action, onUpdate, onRemove }: PostActionRowProps) {
   );
 }
 
+// Rule-level PostAction Row Component (Read-only)
+function PostActionRowReadOnly({ action }: { action: PostAction }) {
+  return (
+    <div className="flex items-center gap-3 p-3 bg-zinc-800 rounded-lg border border-zinc-700">
+      <span className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm">
+        {rulePostActionTypeOptions.find(o => o.value === action.type)?.label ?? action.type}
+      </span>
+
+      {(action.type === 'click' || action.type === 'focus') && (
+        <span className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm font-mono truncate">
+          {action.selector || '(no selector)'}
+        </span>
+      )}
+
+      {action.type === 'pressKey' && (
+        <span className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm">
+          {keyOptions.find(o => o.value === action.key)?.label ?? action.key}
+        </span>
+      )}
+
+      {action.type === 'wait' && (
+        <span className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm">
+          {action.delay ?? 500} ms
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Field-level PostAction Row Component (Sortable)
 interface FieldPostActionRowProps {
   action: PostAction;
@@ -1146,17 +1614,14 @@ function FieldPostActionRow({ action, onUpdate, onRemove }: FieldPostActionRowPr
       className="flex items-center gap-2 p-2 bg-zinc-900 rounded-lg border border-zinc-600"
     >
       {/* Drag handle */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
+      <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing touch-none"
+        className="p-1 rounded text-zinc-400 hover:text-zinc-200 cursor-grab active:cursor-grabbing touch-none"
         title="Drag to reorder"
       >
         <Grip className="w-3 h-3" />
-      </Button>
+      </div>
 
       {/* Action type dropdown */}
       <Select
@@ -1213,6 +1678,35 @@ function FieldPostActionRow({ action, onUpdate, onRemove }: FieldPostActionRowPr
   );
 }
 
+// Field-level PostAction Row Component (Read-only)
+function FieldPostActionRowReadOnly({ action }: { action: PostAction }) {
+  return (
+    <div className="flex items-center gap-2 p-2 bg-zinc-900 rounded-lg border border-zinc-700">
+      <span className="px-2 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 text-xs">
+        {rulePostActionTypeOptions.find(o => o.value === action.type)?.label ?? action.type}
+      </span>
+
+      {(action.type === 'click' || action.type === 'focus') && (
+        <span className="flex-1 px-2 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 text-xs font-mono truncate">
+          {action.selector || '(no selector)'}
+        </span>
+      )}
+
+      {action.type === 'pressKey' && (
+        <span className="flex-1 px-2 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 text-xs">
+          {keyOptions.find(o => o.value === action.key)?.label ?? action.key}
+        </span>
+      )}
+
+      {action.type === 'wait' && (
+        <span className="flex-1 px-2 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-400 text-xs">
+          {action.delay ?? 500} ms
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Repeat Group Card Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1228,6 +1722,8 @@ interface RepeatGroupCardProps {
   onUpdateRowValue: (rowId: string, fieldId: string, value: string) => void;
   onRemoveRow: (rowId: string) => void;
   onReorderRows: (oldIndex: number, newIndex: number) => void;
+  canEditStructure?: boolean;
+  editingVariant?: Variant | null;
 }
 
 function RepeatGroupCard({
@@ -1241,6 +1737,8 @@ function RepeatGroupCard({
   onUpdateRowValue,
   onRemoveRow,
   onReorderRows,
+  canEditStructure = true,
+  editingVariant,
 }: RepeatGroupCardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFieldsExpanded, setIsFieldsExpanded] = useState(true);
@@ -1264,6 +1762,9 @@ function RepeatGroupCard({
     fieldChunks.push(group.fields.slice(i, i + 3));
   }
 
+  // Get the rows to display - from variant if editing, otherwise from group
+  const displayRows = editingVariant?.repeatGroupData?.[group.id] ?? group.rows;
+
   return (
     <div className="bg-zinc-800 rounded-lg border border-zinc-700">
       {/* Header */}
@@ -1280,24 +1781,26 @@ function RepeatGroupCard({
           )}
           <span className="font-medium text-zinc-200">{group.name || 'Unnamed Group'}</span>
           <span className="text-xs text-zinc-500">
-            ({group.fields.length} fields, {group.rows.length} rows)
+            ({group.fields.length} fields, {displayRows.length} rows)
           </span>
         </button>
-        <Button
-          type="button"
-          variant="danger"
-          size="icon-sm"
-          onClick={onRemove}
-          title="Delete group"
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {canEditStructure && (
+          <Button
+            type="button"
+            variant="danger"
+            size="icon-sm"
+            onClick={onRemove}
+            title="Delete group"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
       {isExpanded && (
         <div className="p-4 space-y-4">
           {/* Group Settings - matching FieldMapping style */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!canEditStructure ? 'opacity-60' : ''}`}>
             <div>
               <label className="block text-xs font-medium text-zinc-400 mb-1">Group Name</label>
               <input
@@ -1305,7 +1808,10 @@ function RepeatGroupCard({
                 value={group.name}
                 onChange={(e) => onUpdate({ name: e.target.value })}
                 placeholder="e.g., User Entries"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                disabled={!canEditStructure}
+                className={`w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  !canEditStructure ? 'cursor-not-allowed' : ''
+                }`}
               />
             </div>
             <div>
@@ -1315,7 +1821,10 @@ function RepeatGroupCard({
                 value={group.rowSelector}
                 onChange={(e) => onUpdate({ rowSelector: e.target.value })}
                 placeholder=".user-row, tr.data-row"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                disabled={!canEditStructure}
+                className={`w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono ${
+                  !canEditStructure ? 'cursor-not-allowed' : ''
+                }`}
               />
               <p className="text-xs text-zinc-500 mt-1">CSS selector for each row container</p>
             </div>
@@ -1339,7 +1848,7 @@ function RepeatGroupCard({
                   <span className="text-xs text-zinc-500">({group.fields.length})</span>
                 )}
               </button>
-              {isFieldsExpanded && (
+              {isFieldsExpanded && canEditStructure && (
                 <Button type="button" variant="secondary" size="sm" onClick={onAddField}>
                   <Plus className="w-3 h-3" />
                   Add Field
@@ -1351,9 +1860,9 @@ function RepeatGroupCard({
               <>
                 {group.fields.length === 0 ? (
                   <p className="text-center py-4 text-zinc-500 text-sm">
-                    No fields defined. Add fields to define what form elements to fill in each row.
+                    {canEditStructure ? 'No fields defined. Add fields to define what form elements to fill in each row.' : 'No fields defined.'}
                   </p>
-                ) : (
+                ) : canEditStructure ? (
                   <div className="space-y-3">
                     {group.fields.map((field, index) => (
                       <div
@@ -1370,12 +1879,12 @@ function RepeatGroupCard({
                             onClick={() => onRemoveField(field.id)}
                             className="px-2 py-1 bg-zinc-700 text-zinc-400 hover:text-red-400 hover:bg-red-500/20 rounded-tr-md rounded-bl-md transition-colors"
                             title="Remove field"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
 
-                        {/* Field inputs: Match By, Selector, Label */}
+                      {/* Field inputs: Match By, Selector, Label */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <Select
                             label="Match By"
@@ -1413,14 +1922,48 @@ function RepeatGroupCard({
                       </div>
                     ))}
                   </div>
+                ) : (
+                  /* Read-only field definitions */
+                  <div className="space-y-3 opacity-60">
+                    {group.fields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="relative p-4 pt-8 bg-zinc-800 rounded-lg border border-zinc-700"
+                      >
+                        <span className="absolute top-0 left-0 px-3 py-1 bg-zinc-700 text-zinc-400 text-xs font-medium rounded-tl-md rounded-br-md">
+                          {index + 1}
+                        </span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Match By</label>
+                            <span className="block px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm">
+                              {matchTypeOptions.find(o => o.value === field.matchType)?.label ?? field.matchType}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Selector</label>
+                            <span className="block px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm font-mono truncate">
+                              {field.selector || '(empty)'}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-500 mb-1">Label</label>
+                            <span className="block px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-400 text-sm">
+                              {field.label || '(unnamed)'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </>
             )}
           </div>
 
-          {/* Data Rows - Collapsible */}
+          {/* Data Rows - Collapsible - Always visible */}
           {group.fields.length > 0 && (
-            <div className="border-t border-zinc-700 pt-4">
+            <div className={canEditStructure ? 'border-t border-zinc-700 pt-4' : ''}>
               <div className="flex items-center justify-between mb-3">
                 <button
                   type="button"
@@ -1433,8 +1976,8 @@ function RepeatGroupCard({
                     <ChevronRight className="w-3 h-3 text-zinc-400" />
                   )}
                   <h4 className="text-sm font-medium text-zinc-300">Data Rows</h4>
-                  {group.rows.length > 0 && (
-                    <span className="text-xs text-zinc-500">({group.rows.length})</span>
+                  {displayRows.length > 0 && (
+                    <span className="text-xs text-zinc-500">({displayRows.length})</span>
                   )}
                 </button>
                 {isRowsExpanded && (
@@ -1447,15 +1990,15 @@ function RepeatGroupCard({
 
               {isRowsExpanded && (
                 <>
-                  {group.rows.length === 0 ? (
+                  {displayRows.length === 0 ? (
                     <p className="text-center py-4 text-zinc-500 text-sm">
                       No data rows yet. Add rows to define the values to fill in each form row.
                     </p>
                   ) : (
                     <DndContext sensors={rowSensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
-                      <SortableContext items={group.rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                      <SortableContext items={displayRows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                         <div className="space-y-3">
-                          {group.rows.map((row, rowIndex) => (
+                          {displayRows.map((row, rowIndex) => (
                             <DataRowCard
                               key={row.id}
                               row={row}
@@ -1470,7 +2013,7 @@ function RepeatGroupCard({
                     </DndContext>
                   )}
 
-                  {group.rows.length > 0 && (
+                  {displayRows.length > 0 && (
                     <p className="mt-2 text-xs text-zinc-500">
                       Tip: Values support templates like {"{{random:5}}"}, {"{{pick:a,b,c}}"}, or {"{{inc}}"}.
                     </p>
@@ -1554,3 +2097,4 @@ function DataRowCard({ row, rowIndex, fieldChunks, onUpdateValue, onRemove }: Da
     </div>
   );
 }
+
