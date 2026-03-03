@@ -58,6 +58,10 @@ import ArchivedRulesSidebar from './components/ArchivedRulesSidebar';
 import CollectionSidebar from './components/CollectionSidebar';
 import FabConfig from './components/FabConfig';
 import ImageStorageConfig from './components/ImageStorageConfig';
+import Design1 from './designs/Design1';
+import Design2 from './designs/Design2';
+import Design3 from './designs/Design3';
+import Design4 from './designs/Design4';
 
 function OptionsContent() {
   const navigate = useNavigate();
@@ -460,6 +464,11 @@ function OptionsContent() {
         onPermanentDelete={handlePermanentDelete}
       />
     ) : null;
+
+  if (route.view === 'design-1') return <Design1 />;
+  if (route.view === 'design-2') return <Design2 />;
+  if (route.view === 'design-3') return <Design3 />;
+  if (route.view === 'design-4') return <Design4 />;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">

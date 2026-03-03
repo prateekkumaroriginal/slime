@@ -5,7 +5,11 @@ export type Route =
   | { view: 'create'; collectionId?: string | null }
   | { view: 'edit'; ruleId: string; collectionId?: string | null }
   | { view: 'action-button' }
-  | { view: 'image-storage' };
+  | { view: 'image-storage' }
+  | { view: 'design-1' }
+  | { view: 'design-2' }
+  | { view: 'design-3' }
+  | { view: 'design-4' };
 
 export function parsePath(path: string): Route {
   const cleanPath = path.replace(/^#/, '');
@@ -24,6 +28,22 @@ export function parsePath(path: string): Route {
 
   if (cleanPath === 'image-storage') {
     return { view: 'image-storage' };
+  }
+
+  if (cleanPath === '1') {
+    return { view: 'design-1' };
+  }
+  
+  if (cleanPath === '2') {
+    return { view: 'design-2' };
+  }
+  
+  if (cleanPath === '3') {
+    return { view: 'design-3' };
+  }
+  
+  if (cleanPath === '4') {
+    return { view: 'design-4' };
   }
 
   // Edit without collection context: edit/:ruleId
@@ -73,6 +93,14 @@ export function routeToPath(route: Route): string {
       return 'action-button';
     case 'image-storage':
       return 'image-storage';
+    case 'design-1':
+      return '1';
+    case 'design-2':
+      return '2';
+    case 'design-3':
+      return '3';
+    case 'design-4':
+      return '4';
   }
 }
 
