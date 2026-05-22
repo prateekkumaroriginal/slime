@@ -1,0 +1,53 @@
+---
+import DocsNavLinks from './DocsNavLinks.astro';
+
+interface PaginationLink {
+  title: string;
+  href: string;
+  description: string;
+  rel: 'prev' | 'next';
+}
+
+const pageDescriptions: Record<string, string> = {
+  '/getting-started/': 'Load Slime in Chrome and create your first form filling rule.',
+  '/rules/': 'Build reusable fill profiles that match pages and populate fields.',
+  '/dynamic-values/': 'Use templates and generators to fill forms with useful test data.',
+  '/images/': 'Store images and use them when filling file inputs.',
+  '/post-actions/': 'Run clicks, focus changes, key presses, and waits after filling fields.',
+  '/floating-action-button/': 'Trigger default fill rules directly from the page.',
+  '/collections/': 'Organize related rules into folders.',
+  '/privacy-and-storage/': 'Understand what Slime stores and where the data lives.',
+  '/troubleshooting/': 'Fix common rule matching, field filling, and extension loading issues.',
+};
+
+const { pagination } = Astro.locals.starlightRoute;
+const { prev, next } = pagination;
+
+const links: PaginationLink[] = [];
+
+if (prev) {
+  links.push({
+    title: prev.label,
+    href: prev.href,
+    description: pageDescriptions[prev.href] ?? Astro.locals.t('page.previousLink'),
+    rel: 'prev',
+  });
+}
+
+if (next) {
+  links.push({
+    title: next.label,
+    href: next.href,
+    description: pageDescriptions[next.href] ?? Astro.locals.t('page.nextLink'),
+    rel: 'next',
+  });
+}
+---
+
+{
+  links.length > 0 && (
+    <div class="print:hidden">
+      <DocsNavLinks links={links} ariaLabel="Page navigation" />
+    </div>
+  )
+}

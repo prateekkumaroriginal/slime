@@ -3,8 +3,6 @@ title: Troubleshooting
 description: Fix common rule matching, field filling, and extension loading issues.
 ---
 
-import DocsNavLinks from '../../components/DocsNavLinks.astro';
-
 Start with the page, then the rule, then the field mapping. Most issues come from a URL pattern that does not match or a selector that no longer points at the intended input.
 
 ## Rule Does Not Appear
@@ -26,18 +24,3 @@ Confirm the target field is a file input and the stored image still exists in Sl
 ## Extension Changes Do Not Show Up
 
 After building from source, reload the extension from `chrome://extensions/`. If a content script was already running on a page, reload that page too.
-
-<DocsNavLinks
-  links={[
-    {
-      title: 'Getting Started',
-      href: '/getting-started/',
-      description: 'Review the setup and first-rule flow.',
-    },
-    {
-      title: 'Rules',
-      href: '/rules/',
-      description: 'Check URL patterns and field mappings.',
-    },
-  ]}
-/>

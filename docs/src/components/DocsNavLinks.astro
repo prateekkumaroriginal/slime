@@ -5,26 +5,29 @@ interface NavLinkItem {
   title: string;
   href: string;
   description?: string;
+  rel?: string;
 }
 
 interface Props {
   links: NavLinkItem[];
+  ariaLabel?: string;
 }
 
-const { links } = Astro.props;
+const { links, ariaLabel = 'Related documentation' } = Astro.props;
 ---
 
 {
   links.length > 0 && (
     <nav
       class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-      aria-label="Related documentation"
+      aria-label={ariaLabel}
     >
       {links.map((link) => (
         <SlimeLinkCard
           title={link.title}
           href={link.href}
           description={link.description}
+          rel={link.rel}
         />
       ))}
     </nav>

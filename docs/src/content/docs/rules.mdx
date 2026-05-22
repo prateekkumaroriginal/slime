@@ -3,8 +3,6 @@ title: Rules
 description: Build reusable fill profiles that match pages and populate fields.
 ---
 
-import DocsNavLinks from '../../components/DocsNavLinks.astro';
-
 A rule is a saved fill profile. It contains a name, URL pattern, field mappings, optional post-actions, and enabled state.
 
 ## URL Patterns
@@ -33,18 +31,3 @@ Values can be static text, a dynamic template, generated title or description te
 ## Rule Management
 
 Duplicate rules when you need similar profiles, archive rules when they should stay out of active lists, and export rules when you want a backup or need to move a setup between browsers.
-
-<DocsNavLinks
-  links={[
-    {
-      title: 'Dynamic Values',
-      href: '/dynamic-values/',
-      description: 'Generate repeatable test data directly inside field values.',
-    },
-    {
-      title: 'Post-Actions',
-      href: '/post-actions/',
-      description: 'Click, focus, press keys, or wait after filling fields.',
-    },
-  ]}
-/>

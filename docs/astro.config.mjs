@@ -12,6 +12,7 @@ export default defineConfig({
       customCss: ['./src/styles/global.css', './src/styles/theme.css'],
       components: {
         Hero: './src/components/SlimeHero.astro',
+        Pagination: './src/components/SlimePagination.astro',
         ThemeSelect: './src/components/ThemeSelect.astro',
       },
       sidebar: [
