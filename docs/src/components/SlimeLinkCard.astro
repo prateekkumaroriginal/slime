@@ -1,0 +1,29 @@
+---
+import { LinkCard } from '@astrojs/starlight/components';
+
+interface Props {
+  title: string;
+  href: string;
+  description?: string;
+  external?: boolean;
+}
+
+const { title, href, description, external = false } = Astro.props;
+---
+
+<div
+  class:list={[
+    '[&_.sl-link-card]:rounded-lg [&_.sl-link-card]:border-border [&_.sl-link-card]:bg-card',
+    '[&_.sl-link-card]:transition-[background-color,border-color,box-shadow] [&_.sl-link-card]:duration-150 [&_.sl-link-card]:ease-in-out',
+    '[&_.sl-link-card:hover]:border-primary [&_.sl-link-card:hover]:bg-accent [&_.sl-link-card:hover]:shadow-md',
+    '[&_.sl-link-card_.title]:text-card-foreground [&_.sl-link-card_.description]:text-muted-foreground [&_.sl-link-card_.icon]:text-primary',
+  ]}
+>
+  <LinkCard
+    title={title}
+    href={href}
+    description={description}
+    target={external ? '_blank' : undefined}
+    rel={external ? 'noreferrer' : undefined}
+  />
+</div>

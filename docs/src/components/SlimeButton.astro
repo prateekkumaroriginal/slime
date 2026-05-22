@@ -1,0 +1,55 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+import type { ComponentProps, HTMLAttributes } from 'astro/types';
+
+type StarlightIconName = ComponentProps<typeof Icon>['name'];
+
+interface Props extends Omit<HTMLAttributes<'a'>, 'size'> {
+  href: string | URL;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  icon?: StarlightIconName;
+  iconPlacement?: 'start' | 'end';
+}
+
+const {
+  href,
+  variant = 'primary',
+  size = 'default',
+  icon,
+  iconPlacement = 'end',
+  class: className,
+  ...attributes
+} = Astro.props;
+
+const baseClass =
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[var(--sl-color-accent-low)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
+
+const variantClasses = {
+  primary:
+    'bg-primary text-primary-foreground hover:bg-primary/90 border border-transparent',
+  secondary:
+    'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent',
+  outline:
+    'border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
+  ghost: 'border border-transparent hover:bg-accent hover:text-accent-foreground',
+  link: 'border border-transparent text-primary underline-offset-4 hover:underline',
+}[variant];
+
+const sizeClasses = {
+  default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+  sm: 'h-8 gap-1.5 px-3 has-[>svg]:px-2.5',
+  lg: 'h-10 px-6 has-[>svg]:px-4',
+  icon: 'size-9 p-0',
+}[size];
+---
+
+<a
+  href={href}
+  class:list={[baseClass, variantClasses, sizeClasses, className]}
+  {...attributes}
+>
+  {icon && iconPlacement === 'start' && <Icon name={icon} />}
+  <slot />
+  {icon && iconPlacement === 'end' && <Icon name={icon} />}
+</a>

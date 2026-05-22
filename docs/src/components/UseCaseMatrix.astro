@@ -1,0 +1,29 @@
+---
+interface UseCase {
+  problem: string;
+  fix: string;
+}
+
+interface Props {
+  items: UseCase[];
+}
+
+const { items } = Astro.props;
+---
+
+<div class="overflow-hidden rounded-lg border border-border bg-card">
+  <div class="hidden grid-cols-[0.9fr_1.1fr] border-b border-border bg-muted/45 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+    <span>If a site has...</span>
+    <span>Use Slime to...</span>
+  </div>
+  <div class="divide-y divide-border">
+    {
+      items.map((item) => (
+        <div class="grid gap-2 px-5 py-4 md:grid-cols-[0.9fr_1.1fr] md:gap-6">
+          <div class="text-sm font-medium text-card-foreground">{item.problem}</div>
+          <div class="text-sm leading-relaxed text-muted-foreground">{item.fix}</div>
+        </div>
+      ))
+    }
+  </div>
+</div>

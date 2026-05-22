@@ -1,0 +1,39 @@
+---
+title: Images
+description: Store images and use them when filling file inputs.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+Slime can store image files in extension storage and attach them to file inputs when a matching rule runs.
+
+## Add Images
+
+Open the options page, go to image storage, and add the image assets you use for testing. Slime supports common browser image formats such as PNG, JPEG, GIF, and WebP.
+
+## Use An Image In A Rule
+
+1. Create or edit a rule.
+2. Add a field mapping for a file input.
+3. Choose the image value type.
+4. Select one of the stored images.
+5. Save and run the rule on a matching page.
+
+## Storage
+
+Images use Chrome extension storage. Keep the image library focused so the extension remains fast to back up and restore.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Privacy and Storage',
+      href: '/privacy-and-storage/',
+      description: 'See what Slime stores locally.',
+    },
+    {
+      title: 'Troubleshooting',
+      href: '/troubleshooting/',
+      description: 'Fix file input and matching issues.',
+    },
+  ]}
+/>

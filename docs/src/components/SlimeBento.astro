@@ -1,0 +1,92 @@
+---
+const rules = ['*://staging.example.com/*', '*://app.local/*', '*'];
+const toggles = [
+  { name: 'QA signup', enabled: true },
+  { name: 'Admin profile', enabled: true },
+  { name: 'Checkout test', enabled: false },
+];
+---
+
+<div class="grid gap-4 md:grid-cols-6">
+  <section class="bento-item md:col-span-4 md:row-span-2">
+    <div class="flex flex-col gap-4">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-wide text-primary">URL patterns</p>
+        <h3 class="text-xl font-semibold text-card-foreground">Run fill profiles on the right pages</h3>
+      </div>
+      <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        Match a single route, a full site, or every page when a test profile should be available globally.
+      </p>
+      <div class="flex flex-wrap gap-2">
+        {rules.map((rule) => <span class="rounded-md bg-muted px-3 py-1.5 font-mono text-sm text-card-foreground">{rule}</span>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="bento-item md:col-span-2 md:row-span-2">
+    <p class="text-xs font-medium uppercase tracking-wide text-primary">Quick controls</p>
+    <div class="flex flex-col gap-3">
+      {
+        toggles.map((toggle) => (
+          <div class="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+            <span class="text-sm text-card-foreground">{toggle.name}</span>
+            <span class:list={['h-5 w-9 rounded-full p-0.5 transition-colors', toggle.enabled ? 'bg-primary' : 'bg-muted']}>
+              <span class:list={['block size-4 rounded-full bg-primary-foreground transition-transform', toggle.enabled && 'translate-x-4']} />
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="bento-item md:col-span-3">
+    <p class="text-xs font-medium uppercase tracking-wide text-primary">Field template</p>
+    <pre class="overflow-x-auto rounded-md border border-border bg-background p-4 text-sm text-card-foreground"><code>{`email: qa_{{inc}}@example.com
+username: tester{{random:4}}
+country: {{pick:US,UK,CA}}
+date: {{date:YYYY-MM-DD}}
+`}</code></pre>
+  </section>
+
+  <section class="bento-item md:col-span-2">
+    <p class="text-xs font-medium uppercase tracking-wide text-primary">Collections</p>
+    <div class="flex flex-wrap gap-2">
+      <span class="chip">Auth</span>
+      <span class="chip">Checkout</span>
+      <span class="chip">Admin</span>
+    </div>
+    <p class="text-sm leading-relaxed text-muted-foreground">Group related rules when a workflow needs several profiles.</p>
+  </section>
+
+  <section class="bento-item md:col-span-1">
+    <p class="text-xs font-medium uppercase tracking-wide text-primary">Archive</p>
+    <div class="flex flex-col gap-2 text-sm">
+      <span class="text-card-foreground">Rule saved</span>
+      <span class="text-muted-foreground">Archived</span>
+      <span class="text-primary">Restore</span>
+    </div>
+  </section>
+</div>
+
+<style>
+  .bento-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 11rem;
+    border: 1px solid var(--slime-border);
+    border-radius: 0.5rem;
+    background: var(--slime-card);
+    padding: 1.25rem;
+    box-shadow: var(--sl-shadow-sm);
+  }
+
+  .chip {
+    border: 1px solid var(--slime-border);
+    border-radius: 999rem;
+    background: var(--slime-muted);
+    padding: 0.35rem 0.65rem;
+    color: var(--slime-card-foreground);
+    font-size: 0.875rem;
+  }
+</style>

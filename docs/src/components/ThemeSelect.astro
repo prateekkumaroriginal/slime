@@ -1,0 +1,310 @@
+<starlight-theme-select class="slime-theme-select">
+  <button
+    class="slime-theme-trigger"
+    type="button"
+    aria-label="Choose color theme"
+    aria-haspopup="menu"
+    aria-expanded="false"
+  >
+    <span class="slime-theme-trigger-icon" data-theme-trigger-icon></span>
+  </button>
+  <div class="slime-theme-menu" role="menu" hidden>
+    <button class="slime-theme-item" type="button" role="menuitemradio" data-theme-value="auto">
+      <span class="slime-theme-icon" data-theme-icon="auto"></span>
+      <span>System</span>
+      <span class="slime-theme-check" aria-hidden="true"></span>
+    </button>
+    <button class="slime-theme-item" type="button" role="menuitemradio" data-theme-value="light">
+      <span class="slime-theme-icon" data-theme-icon="light"></span>
+      <span>Light</span>
+      <span class="slime-theme-check" aria-hidden="true"></span>
+    </button>
+    <button class="slime-theme-item" type="button" role="menuitemradio" data-theme-value="dark">
+      <span class="slime-theme-icon" data-theme-icon="dark"></span>
+      <span>Dark</span>
+      <span class="slime-theme-check" aria-hidden="true"></span>
+    </button>
+  </div>
+</starlight-theme-select>
+
+<script>
+  type ThemePreference = "auto" | "light" | "dark";
+
+  const storageKey = "starlight-theme";
+
+  const iconPaths: Record<ThemePreference, string> = {
+    auto:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>',
+    light:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>',
+    dark:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.8A9 9 0 1 1 12 3Z"></path></svg>',
+  };
+
+  function parseTheme(value: unknown): ThemePreference {
+    return value === "light" || value === "dark" || value === "auto"
+      ? value
+      : "auto";
+  }
+
+  function loadTheme(): ThemePreference {
+    if (typeof localStorage === "undefined") {
+      return "auto";
+    }
+
+    return parseTheme(localStorage.getItem(storageKey) || "auto");
+  }
+
+  function storeTheme(theme: ThemePreference): void {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    localStorage.setItem(storageKey, theme === "auto" ? "" : theme);
+  }
+
+  function getPreferredColorScheme(): "light" | "dark" {
+    return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  function prefersReducedMotion(): boolean {
+    return matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function animateThemeShockwave(viewTransition: ViewTransition): void {
+    void viewTransition.ready
+      .then(() => {
+        const x = window.innerWidth / 2;
+        const y = 0;
+        const endRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y),
+        );
+
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${endRadius}px at ${x}px ${y}px)`,
+            ],
+          },
+          {
+            duration: 720,
+            easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+            pseudoElement: "::view-transition-new(root)",
+          },
+        );
+      })
+      .catch(() => {
+        viewTransition.skipTransition();
+      });
+  }
+
+  class SlimeThemeSelect extends HTMLElement {
+    private preference: ThemePreference = "auto";
+    private trigger: HTMLButtonElement | null = null;
+    private menu: HTMLElement | null = null;
+
+    connectedCallback(): void {
+      this.trigger = this.querySelector<HTMLButtonElement>(".slime-theme-trigger");
+      this.menu = this.querySelector<HTMLElement>(".slime-theme-menu");
+      this.preference = loadTheme();
+
+      this.querySelectorAll<HTMLElement>("[data-theme-icon]").forEach((icon) => {
+        const theme = parseTheme(icon.dataset.themeIcon);
+        icon.innerHTML = iconPaths[theme];
+      });
+
+      this.trigger?.addEventListener("click", this.toggleMenu);
+      this.querySelectorAll<HTMLButtonElement>("[data-theme-value]").forEach((item) => {
+        item.addEventListener("click", () => {
+          this.setTheme(parseTheme(item.dataset.themeValue), true, true);
+          this.closeMenu();
+        });
+      });
+      document.addEventListener("click", this.handleOutsideClick);
+      document.addEventListener("keydown", this.handleKeydown);
+      matchMedia("(prefers-color-scheme: light)").addEventListener(
+        "change",
+        this.handleSystemChange,
+      );
+
+      this.setTheme(this.preference, false);
+    }
+
+    disconnectedCallback(): void {
+      this.trigger?.removeEventListener("click", this.toggleMenu);
+      document.removeEventListener("click", this.handleOutsideClick);
+      document.removeEventListener("keydown", this.handleKeydown);
+      matchMedia("(prefers-color-scheme: light)").removeEventListener(
+        "change",
+        this.handleSystemChange,
+      );
+    }
+
+    private readonly setTheme = (
+      theme: ThemePreference,
+      shouldStore = true,
+      shouldAnimate = false,
+    ): void => {
+      const updateTheme = (): void => {
+        this.preference = theme;
+        document.documentElement.dataset.theme =
+          theme === "auto" ? getPreferredColorScheme() : theme;
+
+        if (shouldStore) {
+          storeTheme(theme);
+        }
+      };
+
+      if (shouldAnimate && "startViewTransition" in document && !prefersReducedMotion()) {
+        document.documentElement.dataset.themeTransition = "top-shockwave";
+        const viewTransition = document.startViewTransition(updateTheme);
+        animateThemeShockwave(viewTransition);
+        void viewTransition.finished
+          .finally(() => {
+            delete document.documentElement.dataset.themeTransition;
+          })
+          .catch(() => {
+            delete document.documentElement.dataset.themeTransition;
+          });
+      } else {
+        updateTheme();
+      }
+
+      if (this.trigger) {
+        this.trigger.querySelector("[data-theme-trigger-icon]")!.innerHTML = iconPaths[theme];
+      }
+
+      this.querySelectorAll<HTMLButtonElement>("[data-theme-value]").forEach((item) => {
+        const selected = item.dataset.themeValue === theme;
+        item.setAttribute("aria-checked", String(selected));
+        item.dataset.checked = String(selected);
+      });
+    };
+
+    private readonly handleSystemChange = (): void => {
+      if (this.preference === "auto") {
+        this.setTheme("auto", true, false);
+      }
+    };
+
+    private readonly toggleMenu = (): void => {
+      if (!this.menu || !this.trigger) {
+        return;
+      }
+
+      const isOpen = this.menu.hidden;
+      this.menu.hidden = !isOpen;
+      this.trigger.setAttribute("aria-expanded", String(isOpen));
+    };
+
+    private closeMenu(): void {
+      if (!this.menu || !this.trigger) {
+        return;
+      }
+
+      this.menu.hidden = true;
+      this.trigger.setAttribute("aria-expanded", "false");
+    }
+
+    private readonly handleOutsideClick = (event: MouseEvent): void => {
+      if (!this.contains(event.target as Node)) {
+        this.closeMenu();
+      }
+    };
+
+    private readonly handleKeydown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        this.closeMenu();
+      }
+    };
+  }
+
+  customElements.define("starlight-theme-select", SlimeThemeSelect);
+
+  const syncVisibleTocLinks = (): void => {
+    const toc = document.querySelector<HTMLElement>(".right-sidebar-panel starlight-toc");
+    if (!toc) return;
+
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>('a[href^="#"]')];
+    const rootList = toc.querySelector<HTMLElement>("nav > ul");
+    const headings = links
+      .map((link) => {
+        const id = decodeURIComponent(link.hash.slice(1));
+        const heading = document.getElementById(id);
+        return heading ? { heading, link } : undefined;
+      })
+      .filter((item): item is { heading: HTMLElement; link: HTMLAnchorElement } => Boolean(item));
+
+    if (!headings.length) return;
+
+    const clearVisibleLinks = (): void => {
+      links.forEach((link) => link.removeAttribute("data-in-view"));
+    };
+
+    const setVisibleLinks = (): void => {
+      const navHeight = document.querySelector("header")?.getBoundingClientRect().height ?? 0;
+      const top = navHeight + 32;
+      const bottom = window.innerHeight;
+      let hasVisibleHeading = false;
+
+      clearVisibleLinks();
+
+      headings.forEach(({ heading, link }) => {
+        const rect = heading.getBoundingClientRect();
+        const isVisible = rect.bottom >= top && rect.top <= bottom;
+
+        if (isVisible) {
+          link.setAttribute("data-in-view", "true");
+          hasVisibleHeading = true;
+        }
+      });
+
+      if (!hasVisibleHeading) {
+        toc.querySelector('a[aria-current="true"]')?.setAttribute("data-in-view", "true");
+      }
+
+      if (!rootList) return;
+
+      const activeItems = links
+        .filter((link) => link.dataset.inView === "true")
+        .map((link) => link.closest<HTMLElement>("li"))
+        .filter((item): item is HTMLElement => Boolean(item))
+        .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+
+      const firstItem = activeItems[0];
+      const lastItem = activeItems.at(-1);
+
+      if (!firstItem || !lastItem) {
+        toc.style.setProperty("--slime-toc-active-height", "0px");
+        return;
+      }
+
+      const listRect = rootList.getBoundingClientRect();
+      const firstRect = firstItem.getBoundingClientRect();
+      const lastRect = lastItem.getBoundingClientRect();
+      const activeTop = Math.max(0, firstRect.top - listRect.top - 2);
+      const activeHeight = Math.max(0, lastRect.bottom - firstRect.top + 4);
+
+      toc.style.setProperty("--slime-toc-active-top", `${activeTop}px`);
+      toc.style.setProperty("--slime-toc-active-height", `${activeHeight}px`);
+    };
+
+    let frame = 0;
+    const queueVisibleLinkSync = (): void => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(setVisibleLinks);
+    };
+
+    setVisibleLinks();
+    window.addEventListener("scroll", queueVisibleLinkSync, { passive: true });
+    window.addEventListener("resize", queueVisibleLinkSync);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncVisibleTocLinks, { once: true });
+  } else {
+    syncVisibleTocLinks();
+  }
+</script>

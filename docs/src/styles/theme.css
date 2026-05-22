@@ -1,0 +1,89 @@
+/*
+ * Slime zinc and emerald palette for Starlight.
+ * Maps the docs theme to Starlight and local CSS custom properties.
+ */
+
+:root {
+  --sl-color-accent-low: oklch(0.91 0.045 155);
+  --sl-color-accent: oklch(0.58 0.17 153);
+  --sl-color-accent-high: oklch(0.23 0.07 153);
+
+  --sl-color-white: oklch(0.21 0.02 255);
+  --sl-color-gray-1: oklch(0.27 0.018 255);
+  --sl-color-gray-2: oklch(0.42 0.015 255);
+  --sl-color-gray-3: oklch(0.54 0.014 255);
+  --sl-color-gray-4: oklch(0.72 0.012 255);
+  --sl-color-gray-5: oklch(0.88 0.01 255);
+  --sl-color-gray-6: oklch(0.94 0.006 255);
+  --sl-color-gray-7: oklch(0.98 0.003 255);
+  --sl-color-black: oklch(0.985 0.002 255);
+
+  --sl-color-bg: oklch(0.985 0.002 255);
+  --sl-color-bg-nav: oklch(0.985 0.002 255);
+  --sl-color-bg-sidebar: oklch(0.985 0.002 255);
+  --sl-color-bg-inline-code: oklch(0.94 0.006 255);
+
+  --sl-color-hairline-light: oklch(0.90 0.01 255);
+  --sl-color-hairline: oklch(0.86 0.012 255);
+  --sl-color-hairline-shade: oklch(0.82 0.014 255);
+
+  --sl-color-text: oklch(0.21 0.02 255);
+  --sl-color-text-accent: oklch(0.50 0.16 153);
+
+  --slime-background: oklch(0.985 0.002 255);
+  --slime-foreground: oklch(0.21 0.02 255);
+  --slime-card: oklch(1 0 0);
+  --slime-card-foreground: oklch(0.21 0.02 255);
+  --slime-primary: oklch(0.50 0.16 153);
+  --slime-primary-foreground: oklch(0.985 0.002 255);
+  --slime-secondary: oklch(0.94 0.006 255);
+  --slime-secondary-foreground: oklch(0.27 0.018 255);
+  --slime-muted: oklch(0.94 0.006 255);
+  --slime-muted-foreground: oklch(0.46 0.012 255);
+  --slime-accent: oklch(0.91 0.045 155);
+  --slime-accent-foreground: oklch(0.23 0.07 153);
+  --slime-border: oklch(0.86 0.012 255);
+  --slime-ring: oklch(0.58 0.17 153);
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: oklch(0.23 0.07 153);
+  --sl-color-accent: oklch(0.76 0.17 153);
+  --sl-color-accent-high: oklch(0.91 0.045 155);
+
+  --sl-color-white: oklch(0.94 0.006 255);
+  --sl-color-gray-1: oklch(0.88 0.008 255);
+  --sl-color-gray-2: oklch(0.72 0.012 255);
+  --sl-color-gray-3: oklch(0.58 0.014 255);
+  --sl-color-gray-4: oklch(0.38 0.014 255);
+  --sl-color-gray-5: oklch(0.28 0.014 255);
+  --sl-color-gray-6: oklch(0.22 0.014 255);
+  --sl-color-black: oklch(0.145 0.018 255);
+
+  --sl-color-bg: oklch(0.145 0.018 255);
+  --sl-color-bg-nav: oklch(0.145 0.018 255);
+  --sl-color-bg-sidebar: oklch(0.145 0.018 255);
+  --sl-color-bg-inline-code: oklch(0.22 0.014 255);
+
+  --sl-color-hairline-light: oklch(0.28 0.014 255);
+  --sl-color-hairline: oklch(0.33 0.014 255);
+  --sl-color-hairline-shade: oklch(0.38 0.014 255);
+
+  --sl-color-text: oklch(0.94 0.006 255);
+  --sl-color-text-accent: oklch(0.76 0.17 153);
+
+  --slime-background: oklch(0.145 0.018 255);
+  --slime-foreground: oklch(0.94 0.006 255);
+  --slime-card: oklch(0.19 0.018 255);
+  --slime-card-foreground: oklch(0.94 0.006 255);
+  --slime-primary: oklch(0.76 0.17 153);
+  --slime-primary-foreground: oklch(0.145 0.018 255);
+  --slime-secondary: oklch(0.24 0.014 255);
+  --slime-secondary-foreground: oklch(0.90 0.008 255);
+  --slime-muted: oklch(0.24 0.014 255);
+  --slime-muted-foreground: oklch(0.70 0.012 255);
+  --slime-accent: oklch(0.25 0.06 153);
+  --slime-accent-foreground: oklch(0.91 0.045 155);
+  --slime-border: oklch(0.33 0.014 255);
+  --slime-ring: oklch(0.76 0.17 153);
+}

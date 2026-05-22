@@ -1,0 +1,50 @@
+---
+title: Rules
+description: Build reusable fill profiles that match pages and populate fields.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+A rule is a saved fill profile. It contains a name, URL pattern, field mappings, optional post-actions, and enabled state.
+
+## URL Patterns
+
+Use URL patterns to control where a rule is available.
+
+| Pattern | Matches |
+| --- | --- |
+| `*` | Every page |
+| `*://example.com/*` | Any protocol on `example.com` |
+| `https://example.com/login` | One exact URL |
+| `/^https:\/\/.*\.example\.com/` | A regular expression pattern |
+
+## Field Mappings
+
+Each mapping tells Slime how to find a field and what to put in it.
+
+| Match By | Best For |
+| --- | --- |
+| ID | Stable form fields with unique IDs |
+| Name | Common signup, login, and checkout fields |
+| Query Selector | Complex pages that need precise CSS selectors |
+
+Values can be static text, a dynamic template, generated title or description text, or an image for file inputs.
+
+## Rule Management
+
+Duplicate rules when you need similar profiles, archive rules when they should stay out of active lists, and export rules when you want a backup or need to move a setup between browsers.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Dynamic Values',
+      href: '/dynamic-values/',
+      description: 'Generate repeatable test data directly inside field values.',
+    },
+    {
+      title: 'Post-Actions',
+      href: '/post-actions/',
+      description: 'Click, focus, press keys, or wait after filling fields.',
+    },
+  ]}
+/>

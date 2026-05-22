@@ -1,0 +1,40 @@
+---
+title: Post-Actions
+description: Run clicks, focus changes, key presses, and waits after filling fields.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+Post-actions let a rule keep moving after values are filled. Use them for forms that need a tab press, a submit click, or a short delay before the next step.
+
+## Action Types
+
+| Action | Use It For |
+| --- | --- |
+| Click | Pressing a button or opening the next panel |
+| Focus | Moving the cursor to another field |
+| Press Key | Sending keys such as Enter, Tab, or Escape |
+| Wait | Giving the page time to update before the next action |
+
+## Field-Level Actions
+
+Attach actions to a field when the next step depends on that specific input. For example, fill a search box, press Enter, and wait for results.
+
+## Rule-Level Actions
+
+Attach actions to a rule when they should run after all fields complete. For example, fill a signup form and click the submit button.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Rules',
+      href: '/rules/',
+      description: 'Add post-actions to reusable fill profiles.',
+    },
+    {
+      title: 'Floating Action Button',
+      href: '/floating-action-button/',
+      description: 'Run defaults quickly from the page.',
+    },
+  ]}
+/>

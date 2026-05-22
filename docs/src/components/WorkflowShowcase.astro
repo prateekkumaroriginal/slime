@@ -1,0 +1,1199 @@
+---
+import { Image } from 'astro:assets';
+import Braces from 'lucide-astro/Braces';
+import Monitor from 'lucide-astro/Monitor';
+import Settings from 'lucide-astro/Settings';
+
+const WORKFLOW_PANEL_TRANSITION_MS = 220;
+const WORKFLOW_STEP_DURATION_MS = 5600;
+
+const workflowStepDurationSeconds = WORKFLOW_STEP_DURATION_MS / 1000;
+const toKeyframePercent = (seconds: number) =>
+  `${Number(((seconds / workflowStepDurationSeconds) * 100).toFixed(3))}%`;
+
+const workflowDemoTimingSeconds = {
+  startHoldEnd: 0.4,
+  zoomEnd: 1.5,
+  extensionClickStart: 1.85,
+  extensionClickPeak: 1.875,
+  extensionClickEnd: 2.15,
+  popupEnterEnd: 2.55,
+  settingsMoveEnd: 3.05,
+  settingsHoverStart: 3.05,
+  settingsHoverMid: 3.2,
+  settingsHoverEnd: 3.3,
+  settingsClickHidden: 3.45,
+  settingsClickPeak: 3.5,
+  settingsClickEnd: 3.75,
+} as const;
+
+const workflowDemoTiming = Object.fromEntries(
+  Object.entries(workflowDemoTimingSeconds).map(([name, seconds]) => [
+    name,
+    toKeyframePercent(seconds),
+  ]),
+) as Record<keyof typeof workflowDemoTimingSeconds, string>;
+
+const workflowDemoAnimationStyles = `
+  @keyframes site-camera-zoom {
+    /* 0.40s hold, then zoom to the toolbar without exposing blank space. */
+    0%,
+    ${workflowDemoTiming.startHoldEnd} {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    ${workflowDemoTiming.zoomEnd},
+    100% {
+      transform: translate3d(-98%, 0, 0) scale(2.15);
+    }
+  }
+
+  @keyframes demo-cursor-path {
+    /* The cursor visits the extension icon first, then the popup settings icon. */
+    0%,
+    ${workflowDemoTiming.startHoldEnd} {
+      opacity: 1;
+      transform: translate3d(var(--cursor-start-x), var(--cursor-start-y), 0);
+    }
+
+    ${workflowDemoTiming.zoomEnd},
+    ${workflowDemoTiming.popupEnterEnd} {
+      opacity: 1;
+      transform: translate3d(var(--extension-screen-x), var(--extension-screen-y), 0);
+    }
+
+    ${workflowDemoTiming.settingsMoveEnd},
+    100% {
+      opacity: 1;
+      transform: translate3d(var(--settings-screen-x), var(--settings-screen-y), 0);
+    }
+  }
+
+  @keyframes cursor-click-burst {
+    /* Burst windows line up with the extension click and the settings click. */
+    0%,
+    ${workflowDemoTiming.extensionClickStart},
+    ${workflowDemoTiming.extensionClickEnd},
+    ${workflowDemoTiming.settingsClickHidden},
+    ${workflowDemoTiming.settingsClickEnd},
+    100% {
+      opacity: 0;
+      transform: translate3d(-50%, -50%, 0) scale(0.72);
+    }
+
+    ${workflowDemoTiming.extensionClickPeak},
+    ${workflowDemoTiming.settingsClickPeak} {
+      opacity: 0.95;
+      transform: translate3d(-50%, -50%, 0) scale(0.72);
+    }
+
+    ${workflowDemoTiming.extensionClickEnd},
+    ${workflowDemoTiming.settingsClickEnd} {
+      opacity: 0;
+      transform: translate3d(-50%, -50%, 0) scale(1.22);
+    }
+  }
+
+  @keyframes demo-popup-enter {
+    /* The popup appears right after the extension click and stays for the handoff. */
+    0%,
+    ${workflowDemoTiming.extensionClickEnd} {
+      opacity: 0;
+      transform: translate3d(0, -0.75rem, 0) scale(0.985);
+    }
+
+    ${workflowDemoTiming.popupEnterEnd},
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes demo-settings-hover {
+    /* Simulates the real hover state before the click burst fires. */
+    0%,
+    ${workflowDemoTiming.settingsHoverStart} {
+      opacity: 0;
+    }
+
+    ${workflowDemoTiming.settingsHoverMid} {
+      opacity: 0.72;
+    }
+
+    ${workflowDemoTiming.settingsHoverEnd},
+    100% {
+      opacity: 1;
+    }
+  }
+`;
+
+const workflowSteps = [
+  {
+    title: 'Pick a website',
+    eyebrow: 'Target the page',
+    description:
+      'Start from the page that keeps fighting your workflow and save the domain Slime should remember.',
+    domain: 'mail.google.com',
+    ruleName: 'Inbox cleanup',
+    css: `main {
+  max-width: 78rem !important;
+}`,
+    rules: ['Inbox cleanup', 'Reading width', 'Muted promos'],
+  },
+  {
+    title: 'Create a rule',
+    eyebrow: 'Name the fix',
+    description:
+      'Give the tweak a clear rule name so it is easy to find, edit, pause, or reuse later.',
+    domain: 'docs.example.com',
+    ruleName: 'Docs focus mode',
+    css: `.sidebar-ad,
+.promo-banner {
+  display: none !important;
+}`,
+    rules: ['Docs focus mode', 'Compact nav', 'Print polish'],
+  },
+  {
+    title: 'Map fields',
+    eyebrow: 'Make the change',
+    description:
+      'Save the field mappings once and run them whenever the test form returns.',
+    domain: 'app.example.com',
+    ruleName: 'Readable dashboard',
+    css: `table {
+  font-size: 0.92rem !important;
+  line-height: 1.55 !important;
+}`,
+    rules: ['Readable dashboard', 'Sticky header', 'Dense tables'],
+  },
+  {
+    title: 'Run from popup',
+    eyebrow: 'Control it fast',
+    description:
+      'Use the popup to choose the matching rule and fill the current form quickly.',
+    domain: 'news.example.com',
+    ruleName: 'Quiet reading',
+    css: `aside,
+[data-sponsored] {
+  display: none !important;
+}`,
+    rules: ['Quiet reading', 'Wide article', 'Calm links'],
+  },
+  {
+    title: 'Organize collections',
+    eyebrow: 'Keep variants tidy',
+    description:
+      'Group related fill profiles into collections when one project needs several test flows.',
+    domain: 'workspace.example.com',
+    ruleName: 'Planning palette',
+    css: `.kanban-card {
+  border-color: oklch(0.58 0.17 28) !important;
+}`,
+    rules: ['Planning palette', 'Review palette', 'Presentation mode'],
+  },
+];
+---
+
+<style is:inline set:html={workflowDemoAnimationStyles}></style>
+
+<section
+  class="workflow rounded-lg border border-border bg-card p-5"
+  style={`--workflow-step-duration: ${WORKFLOW_STEP_DURATION_MS}ms; --workflow-panel-transition-duration: ${WORKFLOW_PANEL_TRANSITION_MS}ms; --active-index: 0; --track-offset: 0px;`}
+  data-workflow-tabs
+  data-interval={WORKFLOW_STEP_DURATION_MS}
+  data-panel-transition-duration={WORKFLOW_PANEL_TRANSITION_MS}
+  data-transition-direction="forward"
+>
+  <div class="workflow-tabs" role="tablist" aria-orientation="vertical" aria-label="Saved fix workflow">
+    {
+      workflowSteps.map((step, index) => (
+        <button
+          class="workflow-tab"
+          id={`workflow-tab-${index}`}
+          type="button"
+          role="tab"
+          aria-selected={index === 0 ? 'true' : 'false'}
+          aria-controls={`workflow-panel-${index}`}
+          tabindex={index === 0 ? '0' : '-1'}
+          data-workflow-tab
+          data-index={index}
+        >
+          <span class="workflow-tab-number">{String(index + 1).padStart(2, '0')}.</span>
+          <span class="workflow-tab-title">{step.title}</span>
+          <span class="workflow-tab-progress" aria-hidden="true" />
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="workflow-panels">
+    <div class="workflow-panel-track" data-workflow-panel-track>
+    {
+      workflowSteps.map((step, index) => (
+        <article
+          class="workflow-panel"
+          id={`workflow-panel-${index}`}
+          role="tabpanel"
+          aria-labelledby={`workflow-tab-${index}`}
+          data-workflow-panel
+          data-panel-state={index === 0 ? 'active' : 'idle'}
+          aria-hidden={index === 0 ? 'false' : 'true'}
+        >
+          <div class="panel-copy">
+            <span>{step.eyebrow}</span>
+            <h3>{step.title}</h3>
+            <p>{step.description}</p>
+          </div>
+
+          {
+            index === 0 ? (
+              <div
+                class="site-to-popup-demo relative isolate flex overflow-hidden rounded-lg border border-border bg-slate-950 shadow-md"
+                aria-hidden="true"
+              >
+                <div class="site-camera">
+                  <Image
+                    class="site-shot"
+                    src="/icons/slime_logo.png"
+                    alt=""
+                    width={1919}
+                    height={969}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+
+                <div class="demo-popup absolute z-30 flex flex-col overflow-hidden rounded-sm border border-white/15 bg-[#1d1716] text-white shadow-2xl">
+                  <div class="demo-popup-header flex items-center justify-between border-b border-white/15 px-4 py-3">
+                    <div class="demo-popup-brand flex items-center gap-2">
+                      <Image
+                        class="size-5 rounded-sm"
+                        src="/icons/slime_logo.png"
+                        alt=""
+                        width={48}
+                        height={48}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <strong class="demo-popup-title text-base font-semibold text-white">Slime</strong>
+                    </div>
+                    <div class="demo-popup-actions flex items-center gap-1 text-white">
+                      <span class="demo-popup-icon-button">
+                        <Monitor class="size-4" />
+                      </span>
+                      <button class="demo-settings-button inline-flex items-center justify-center rounded-md" type="button" tabindex="-1">
+                        <Settings class="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div class="flex min-h-[clamp(8rem,22vw,14rem)] flex-col gap-5 px-5 py-4">
+                    <span class="w-fit rounded-full bg-[#302724] px-3 py-1.5 font-mono text-sm font-semibold text-[#fff6f0]">
+                      www.ilovepdf.com
+                    </span>
+                    <div class="flex flex-1 flex-col items-center justify-center gap-5 text-center text-[#fff6f0]">
+                      <span class="flex size-12 items-center justify-center rounded-xl bg-[#3a302d]">
+                        <Braces class="size-7" />
+                      </span>
+                      <strong class="text-xl leading-tight text-[#fff6f0]">No Rules/Palettes for this site</strong>
+                      <span class="rounded-lg border border-white/15 bg-[#2a211f] px-5 py-3 text-base font-bold text-[#fff6f0]">
+                        Create a Rule
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <span class="demo-cursor-motion">
+                  <span class="click-burst cursor-click-burst">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <svg class="demo-cursor" viewBox="0 0 28 32" aria-hidden="true">
+                    <path
+                      class="demo-cursor-outline"
+                      d="M3.7 2.8 24.8 15.4 15.2 17.7 10.4 29.4 3.7 2.8Z"
+                    />
+                    <path
+                      class="demo-cursor-fill"
+                      d="M5.9 5.5 21.3 14.7 13.5 16.5 9.8 25.9 5.9 5.5Z"
+                    />
+                  </svg>
+                </span>
+              </div>
+            ) : (
+              <div class="mockups" aria-hidden="true">
+                <div class="browser-mock">
+                  <div class="mock-header">
+                    <span class="dot" />
+                    <span class="dot" />
+                    <span class="dot" />
+                    <span class="address">{step.domain}</span>
+                  </div>
+                  <div class="mock-body">
+                    <div class="rule-panel">
+                      <div class="field">
+                        <span>Name</span>
+                        <strong>{step.ruleName}</strong>
+                      </div>
+                      <div class="field">
+                        <span>Domain</span>
+                        <strong>{step.domain}</strong>
+                      </div>
+                    </div>
+                    <pre><code>{step.css}</code></pre>
+                  </div>
+                </div>
+
+                <div class="popup-mock">
+                  <div class="popup-title">Slime</div>
+                  {step.rules.map((rule, ruleIndex) => (
+                    <div class:list={['popup-rule', ruleIndex < 2 && 'enabled']}>
+                      <span>{rule}</span>
+                      <i />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+        </article>
+      ))
+    }
+    </div>
+  </div>
+</section>
+
+<script>
+  const workflows = document.querySelectorAll<HTMLElement>('[data-workflow-tabs]');
+
+  workflows.forEach((workflow) => {
+    const tabs = Array.from(workflow.querySelectorAll('[data-workflow-tab]')) as HTMLElement[];
+    const panels = Array.from(workflow.querySelectorAll('[data-workflow-panel]')) as HTMLElement[];
+    const panelTrack = workflow.querySelector('[data-workflow-panel-track]') as HTMLElement | null;
+    const interval = Number(workflow.getAttribute('data-interval')) || 8000;
+    const panelTransitionDuration =
+      Number(workflow.getAttribute('data-panel-transition-duration')) || 360;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let activeIndex = 0;
+    let transitionTimeout = 0;
+    let timer = 0;
+    let isWorkflowVisible = false;
+
+    function setTrackPosition(index: number, panelHeight: number) {
+      workflow.style.setProperty('--active-index', String(index));
+      workflow.style.setProperty('--track-offset', `${index * panelHeight * -1}px`);
+    }
+
+    function setPanelHeight() {
+      if (!panels.length) {
+        return;
+      }
+
+      const panelHeight = Math.max(...panels.map((panel) => panel.scrollHeight));
+
+      workflow.style.setProperty('--workflow-panel-height', `${panelHeight}px`);
+      setTrackPosition(activeIndex, panelHeight);
+    }
+
+    function setActiveTab(index: number) {
+      tabs.forEach((tab, tabIndex) => {
+        const isActive = tabIndex === index;
+
+        tab.setAttribute('aria-selected', String(isActive));
+        tab.setAttribute('tabindex', isActive ? '0' : '-1');
+      });
+    }
+
+    function setPanelStates(index: number) {
+      panels.forEach((panel, panelIndex) => {
+        const isActive = panelIndex === index;
+
+        panel.dataset.panelState = isActive ? 'active' : 'idle';
+        panel.setAttribute('aria-hidden', String(!isActive));
+      });
+    }
+
+    function restartPanelAnimations(panel: HTMLElement) {
+      panel.dataset.animationState = 'reset';
+      void panel.offsetWidth;
+
+      window.requestAnimationFrame(() => {
+        delete panel.dataset.animationState;
+      });
+    }
+
+    function restartWorkflowAnimations() {
+      workflow.dataset.animationState = 'reset';
+      panels[activeIndex].dataset.animationState = 'reset';
+      void workflow.offsetWidth;
+
+      window.requestAnimationFrame(() => {
+        delete workflow.dataset.animationState;
+        delete panels[activeIndex].dataset.animationState;
+      });
+    }
+
+    function getTransitionDirection(index: number, isAutoAdvance = false) {
+      const isLoopingToFirst = isAutoAdvance && activeIndex === tabs.length - 1 && index === 0;
+
+      if (isLoopingToFirst) {
+        return 'reverse';
+      }
+
+      return index > activeIndex ? 'forward' : 'reverse';
+    }
+
+    function activateTab(index: number, isAutoAdvance = false) {
+      if (!panelTrack) {
+        return;
+      }
+
+      if (index === activeIndex) {
+        return;
+      }
+
+      const direction = getTransitionDirection(index, isAutoAdvance);
+      window.clearTimeout(transitionTimeout);
+      setPanelHeight();
+      workflow.dataset.transitionDirection = direction;
+      activeIndex = index;
+      setTrackPosition(activeIndex, Math.max(...panels.map((panel) => panel.scrollHeight)));
+      setActiveTab(activeIndex);
+      restartPanelAnimations(panels[activeIndex]);
+
+      if (prefersReducedMotion.matches) {
+        setPanelStates(activeIndex);
+        restartTimer();
+        return;
+      }
+
+      transitionTimeout = window.setTimeout(() => {
+        setPanelStates(activeIndex);
+      }, panelTransitionDuration);
+
+      restartTimer();
+    }
+
+    setPanelHeight();
+    setActiveTab(activeIndex);
+    setPanelStates(activeIndex);
+
+    if ('ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(setPanelHeight);
+
+      panels.forEach((panel) => resizeObserver.observe(panel));
+    }
+
+    function showNextTab() {
+      activateTab((activeIndex + 1) % tabs.length, true);
+    }
+
+    function startTimer() {
+      if (timer) {
+        return;
+      }
+
+      timer = window.setInterval(showNextTab, interval);
+    }
+
+    function stopTimer() {
+      window.clearInterval(timer);
+      timer = 0;
+    }
+
+    function restartTimer() {
+      stopTimer();
+
+      if (isWorkflowVisible) {
+        startTimer();
+      }
+    }
+
+    function resetWorkflow() {
+      window.clearTimeout(transitionTimeout);
+      activeIndex = 0;
+      workflow.dataset.transitionDirection = 'forward';
+      setPanelHeight();
+      setTrackPosition(activeIndex, Math.max(...panels.map((panel) => panel.scrollHeight)));
+      setActiveTab(activeIndex);
+      setPanelStates(activeIndex);
+      restartWorkflowAnimations();
+      restartTimer();
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => {
+        activateTab(index);
+      });
+
+      tab.addEventListener('keydown', (event) => {
+        const keyboardEvent = event as KeyboardEvent;
+
+        if (keyboardEvent.key !== 'ArrowDown' && keyboardEvent.key !== 'ArrowUp') {
+          return;
+        }
+
+        event.preventDefault();
+        const direction = keyboardEvent.key === 'ArrowDown' ? 1 : -1;
+        const nextIndex = (index + direction + tabs.length) % tabs.length;
+
+        tabs[nextIndex].focus();
+        activateTab(nextIndex);
+      });
+    });
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const isVisible = Boolean(entry?.isIntersecting);
+
+          if (isVisible && !isWorkflowVisible) {
+            isWorkflowVisible = true;
+            resetWorkflow();
+            return;
+          }
+
+          if (!isVisible && isWorkflowVisible) {
+            isWorkflowVisible = false;
+            stopTimer();
+          }
+        },
+        { threshold: 0.3 },
+      );
+
+      observer.observe(workflow);
+    } else {
+      isWorkflowVisible = true;
+      restartWorkflowAnimations();
+      startTimer();
+    }
+  });
+</script>
+
+<style>
+  .workflow {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .workflow-tabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .workflow-tab {
+    position: relative;
+    display: flex;
+    min-width: 11rem;
+    flex: 1 0 11rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--slime-muted-foreground);
+    cursor: pointer;
+    font: inherit;
+    margin: 0;
+    padding: 0.8rem;
+    text-align: start;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .workflow-tab:hover,
+  .workflow-tab:focus-visible {
+    border-color: var(--slime-border);
+    background: var(--slime-muted);
+    color: var(--slime-foreground);
+  }
+
+  .workflow-tab:focus-visible {
+    outline: 2px solid var(--slime-ring);
+    outline-offset: 2px;
+  }
+
+  .workflow-tab[aria-selected='true'] {
+    border-color: var(--slime-border);
+    background: var(--slime-background);
+    color: var(--slime-foreground);
+  }
+
+  .workflow-tab-number {
+    font-weight: 700;
+  }
+
+  .workflow-tab-title {
+    color: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .workflow-tab-progress {
+    width: 100%;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: transparent;
+    opacity: 0;
+  }
+
+  .workflow-tab-progress::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    background: var(--slime-primary);
+  }
+
+  .workflow-tab[aria-selected='true'] .workflow-tab-progress::before {
+    animation: workflow-progress var(--workflow-step-duration) linear forwards;
+  }
+
+  .workflow[data-animation-state='reset'] .workflow-tab[aria-selected='true'] .workflow-tab-progress::before {
+    animation: none;
+  }
+
+  .workflow-tab[aria-selected='true'] .workflow-tab-progress {
+    background: var(--slime-border);
+    opacity: 1;
+  }
+
+  .workflow-panels {
+    overflow: hidden;
+    height: var(--workflow-panel-height, auto);
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .workflow-panel-track {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    transform: translate3d(0, var(--track-offset), 0);
+    transition: transform var(--workflow-panel-transition-duration) ease-in-out;
+    will-change: transform;
+  }
+
+  .workflow-panel {
+    display: flex;
+    height: var(--workflow-panel-height, auto);
+    min-height: var(--workflow-panel-height, auto);
+    flex: 0 0 var(--workflow-panel-height, auto);
+    flex-direction: column;
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .workflow-panel[data-panel-state='idle'] {
+    pointer-events: none;
+  }
+
+  .workflow-panel[data-animation-state='reset'] .site-camera,
+  .workflow-panel[data-animation-state='reset'] .demo-popup,
+  .workflow-panel[data-animation-state='reset'] .demo-cursor-motion,
+  .workflow-panel[data-animation-state='reset'] .cursor-click-burst,
+  .workflow-panel[data-animation-state='reset'] .demo-settings-button::before {
+    animation: none;
+  }
+
+  .panel-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .panel-copy span {
+    color: var(--slime-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .panel-copy h3 {
+    color: var(--slime-foreground);
+    font-size: 1.25rem;
+    line-height: 1.2;
+  }
+
+  .panel-copy p {
+    color: var(--slime-muted-foreground);
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .site-to-popup-demo {
+    /* Base coordinates target the source image; screen coordinates target the zoomed frame. */
+    --extension-base-x: 80.016%;
+    --extension-base-y: 2.528%;
+    --extension-screen-x: 74%;
+    --extension-screen-y: 5.45%;
+    --popup-top: 4.85%;
+    --popup-right: 1rem;
+    --settings-screen-x: calc(100% - var(--popup-right) - 2.125rem);
+    --settings-screen-y: calc(var(--popup-top) + 1.875rem);
+    --cursor-start-x: 38%;
+    --cursor-start-y: 58%;
+    /* The animated element is moved by its cursor tip, not by the SVG box corner. */
+    --cursor-tip-x: 0.32rem;
+    --cursor-tip-y: 0.14rem;
+    --cursor-scale: 0.96;
+    aspect-ratio: 1919 / 969;
+  }
+
+  .site-camera {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+    animation: site-camera-zoom var(--workflow-step-duration) ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .site-shot {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+  }
+
+  .demo-popup {
+    top: var(--popup-top);
+    right: var(--popup-right);
+    width: clamp(24rem, 52%, 28.25rem);
+    margin: 0;
+    opacity: 0;
+    pointer-events: auto;
+    transform: translate3d(0, -0.75rem, 0) scale(0.985);
+    animation: demo-popup-enter var(--workflow-step-duration) ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .demo-popup-header {
+    align-items: center;
+    margin: 0;
+  }
+
+  .demo-popup-brand,
+  .demo-popup-actions {
+    align-items: center;
+    line-height: 1;
+    margin: 0;
+  }
+
+  .demo-popup-title {
+    line-height: 1;
+  }
+
+  .demo-popup-icon-button {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .demo-settings-button {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    appearance: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    pointer-events: auto;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .demo-settings-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: oklch(0.32 0.016 45 / 0.5);
+    opacity: 0;
+    animation: demo-settings-hover var(--workflow-step-duration) ease-in-out infinite;
+    transition: opacity 160ms ease;
+  }
+
+  .demo-settings-button:hover,
+  .demo-settings-button:focus-visible {
+    border-color: transparent;
+    background: oklch(0.32 0.016 45 / 0.5);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .demo-settings-button:hover::before,
+  .demo-settings-button:focus-visible::before {
+    opacity: 0;
+  }
+
+  .demo-settings-button :global(svg) {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .demo-cursor-motion {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    width: 100%;
+    height: 100%;
+    transform: translate3d(var(--cursor-start-x), var(--cursor-start-y), 0);
+    animation: demo-cursor-path var(--workflow-step-duration) ease-in-out infinite;
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .demo-cursor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1.45rem;
+    height: 1.65rem;
+    color: var(--slime-primary);
+    transform: translate3d(
+        calc(-1 * var(--cursor-tip-x)),
+        calc(-1 * var(--cursor-tip-y)),
+        0
+      )
+      scale(var(--cursor-scale));
+    filter: drop-shadow(0 0.18rem 0.28rem rgb(0 0 0 / 32%));
+  }
+
+  .demo-cursor-outline {
+    fill: var(--slime-primary-foreground);
+    stroke: var(--slime-primary-foreground);
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+  }
+
+  .demo-cursor-fill {
+    fill: currentColor;
+    stroke: var(--slime-ring);
+    stroke-linejoin: round;
+    stroke-width: 0.45;
+  }
+
+  .click-burst {
+    position: absolute;
+    z-index: 45;
+    width: 2.3rem;
+    height: 2.3rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(-50%, -50%, 0) scale(0.72);
+    will-change: transform, opacity;
+  }
+
+  .cursor-click-burst {
+    top: 0;
+    left: 0;
+    animation: cursor-click-burst var(--workflow-step-duration) ease-out infinite;
+  }
+
+  .click-burst::before {
+    content: '';
+    position: absolute;
+    inset: 0.78rem;
+    border: 2px solid var(--slime-primary);
+    border-radius: 999px;
+    box-shadow: 0 0 0.45rem color-mix(in oklch, var(--slime-ring) 42%, transparent);
+  }
+
+  .click-burst span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.16rem;
+    height: 0.58rem;
+    border-radius: 999px;
+    background: var(--slime-primary);
+    box-shadow: 0 0 0 1px var(--slime-primary-foreground);
+    transform-origin: center 1.05rem;
+  }
+
+  .click-burst span:nth-child(1) {
+    transform: translate(-50%, -50%) rotate(0deg) translateY(-0.72rem);
+  }
+
+  .click-burst span:nth-child(2) {
+    transform: translate(-50%, -50%) rotate(45deg) translateY(-0.72rem);
+  }
+
+  .click-burst span:nth-child(3) {
+    transform: translate(-50%, -50%) rotate(90deg) translateY(-0.72rem);
+  }
+
+  .click-burst span:nth-child(4) {
+    transform: translate(-50%, -50%) rotate(135deg) translateY(-0.72rem);
+  }
+
+  .click-burst span:nth-child(5) {
+    transform: translate(-50%, -50%) rotate(180deg) translateY(-0.72rem);
+  }
+
+  .click-burst span:nth-child(6) {
+    transform: translate(-50%, -50%) rotate(225deg) translateY(-0.72rem);
+  }
+
+  .demo-popup :global(svg) {
+    stroke-width: 2.15;
+  }
+
+  .mockups {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .browser-mock,
+  .popup-mock {
+    overflow: hidden;
+    border: 1px solid var(--slime-border);
+    border-radius: 0.5rem;
+    background: var(--slime-background);
+    box-shadow: var(--sl-shadow-md);
+  }
+
+  .mock-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--slime-border);
+    padding: 0.8rem;
+  }
+
+  .dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    flex: 0 0 auto;
+    border-radius: 999rem;
+    background: var(--slime-border);
+  }
+
+  .address {
+    overflow: hidden;
+    border-radius: 999rem;
+    background: var(--slime-muted);
+    color: var(--slime-muted-foreground);
+    font-family: var(--__sl-font-mono);
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mock-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .rule-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    border: 1px solid var(--slime-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .field span {
+    color: var(--slime-muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .field strong {
+    overflow-wrap: anywhere;
+    color: var(--slime-card-foreground);
+    font-size: 0.9rem;
+  }
+
+  pre {
+    overflow-x: auto;
+    border: 1px solid var(--slime-border);
+    border-radius: 0.5rem;
+    background: var(--slime-card);
+    color: var(--slime-card-foreground);
+    font-size: 0.875rem;
+    padding: 1rem;
+  }
+
+  .popup-mock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .popup-title {
+    color: var(--slime-card-foreground);
+    font-weight: 700;
+  }
+
+  .popup-rule {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--slime-border);
+    border-radius: 0.5rem;
+    color: var(--slime-muted-foreground);
+    font-size: 0.875rem;
+    padding: 0.75rem;
+  }
+
+  .popup-rule i {
+    width: 2rem;
+    height: 1.1rem;
+    flex: 0 0 auto;
+    border-radius: 999rem;
+    background: var(--slime-muted);
+  }
+
+  .popup-rule.enabled {
+    color: var(--slime-card-foreground);
+  }
+
+  .popup-rule.enabled i {
+    background: var(--slime-primary);
+  }
+
+  @keyframes workflow-progress {
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @media (min-width: 50rem) {
+    .workflow {
+      flex-direction: row;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    .workflow-tabs {
+      flex: 0 0 min(15rem, 32%);
+      flex-direction: column;
+      overflow: visible;
+      padding-bottom: 0;
+    }
+
+    .workflow-tab {
+      min-width: 0;
+      flex: 0 0 auto;
+    }
+
+    .mockups {
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    .browser-mock {
+      flex: 1 1 68%;
+    }
+
+    .popup-mock {
+      flex: 1 1 13rem;
+    }
+
+    .mock-body {
+      flex-direction: row;
+    }
+
+    .rule-panel {
+      flex: 0 1 40%;
+    }
+
+    pre {
+      flex: 1 1 60%;
+    }
+  }
+
+  @media (max-width: 38rem) {
+    .site-to-popup-demo {
+      --extension-screen-x: 74%;
+      --extension-screen-y: 5.45%;
+      --popup-top: 7%;
+      --popup-right: 0.75rem;
+      --settings-screen-x: calc(100% - var(--popup-right) - 2.125rem);
+      --settings-screen-y: calc(var(--popup-top) + 1.875rem);
+    }
+
+    .demo-popup {
+      width: min(22rem, calc(100% - 1.5rem));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .workflow-tab {
+      transition: none;
+    }
+
+    .workflow-tab[aria-selected='true'] .workflow-tab-progress::before {
+      animation: none;
+      transform: scaleX(1);
+    }
+
+    .workflow-panel-track {
+      transition: none;
+    }
+
+    .site-camera,
+    .demo-cursor-motion,
+    .cursor-click-burst,
+    .demo-popup,
+    .demo-settings-button::before {
+      animation: none;
+    }
+
+    .site-camera {
+      transform: translate3d(-98%, 0, 0) scale(2.15);
+    }
+
+    .demo-cursor-motion,
+    .cursor-click-burst {
+      opacity: 0;
+    }
+
+    .demo-popup {
+      opacity: 1;
+      transform: none;
+    }
+
+    .demo-settings-button::before {
+      opacity: 1;
+    }
+  }
+</style>

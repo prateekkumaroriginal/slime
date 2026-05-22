@@ -1,0 +1,42 @@
+---
+title: Dynamic Values
+description: Use templates and generators to fill forms with useful test data.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+Dynamic values let one saved rule produce fresh data every time it runs.
+
+## Template Syntax
+
+| Syntax | Output |
+| --- | --- |
+| `{{inc}}` | An incrementing number |
+| `{{inc:100}}` | An incrementing number starting at 100 |
+| `{{random:5}}` | A random alphanumeric string with five characters |
+| `{{pick:US,UK,CA}}` | One value from the list |
+| `{{date:YYYY-MM-DD}}` | A formatted date |
+| `{{regex:[[A-Z]{2}\d{3}]}}` | Text generated from a regex pattern |
+
+## Generated Text
+
+Use title values for short headings, names, or subject lines. Use description values for longer textarea content, comments, bios, and summaries.
+
+## Date Tokens
+
+Common date tokens include `YYYY`, `YY`, `MM`, `M`, `DD`, `D`, `HH`, `H`, `mm`, `m`, `ss`, and `s`.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Rules',
+      href: '/rules/',
+      description: 'Add dynamic templates to field mappings inside a rule.',
+    },
+    {
+      title: 'Images',
+      href: '/images/',
+      description: 'Fill file inputs with saved image assets.',
+    },
+  ]}
+/>

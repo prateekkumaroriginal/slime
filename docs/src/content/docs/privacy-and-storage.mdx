@@ -1,0 +1,41 @@
+---
+title: Privacy and Storage
+description: Understand what Slime stores and where the data lives.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+Slime stores extension data in Chrome storage. The project does not need a backend service for rules, collections, generated counters, or saved images.
+
+## Stored Data
+
+Slime can store:
+
+- Rules and field mappings.
+- Collections.
+- Template counters and generated value settings.
+- Stored images for file inputs.
+- Floating action button preferences.
+
+## Local Extension Storage
+
+Chrome manages the extension storage area. Slime reads from it when rendering the popup and options page, and when content scripts fill matching forms.
+
+## Export Carefully
+
+Exports can contain realistic test data, selectors, URL patterns, and images. Treat exported files as project data and avoid sharing them publicly unless you have reviewed the contents.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Images',
+      href: '/images/',
+      description: 'Understand image storage for file input filling.',
+    },
+    {
+      title: 'Troubleshooting',
+      href: '/troubleshooting/',
+      description: 'Debug storage and rule visibility issues.',
+    },
+  ]}
+/>

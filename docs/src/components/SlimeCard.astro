@@ -1,0 +1,72 @@
+---
+import { Icon } from '@astrojs/starlight/components';
+import type { ComponentProps } from 'astro/types';
+import type { HTMLAttributes } from 'astro/types';
+
+type StarlightIconName = ComponentProps<typeof Icon>['name'];
+
+interface Props extends Omit<HTMLAttributes<'article'>, 'title'> {
+  title: string;
+  icon?: StarlightIconName;
+}
+
+const {
+  title,
+  icon,
+  class: className,
+  ...attributes
+} = Astro.props;
+---
+
+<article
+  {...attributes}
+  data-interactive-card
+  class:list={[
+    'group relative isolate flex min-h-40 flex-col gap-8 overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm transition-[border-color] duration-200 hover:border-[var(--sl-color-accent)]',
+    className,
+  ]}
+>
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+  >
+  </div>
+  <p class="flex items-center gap-4 text-lg font-semibold leading-tight text-card-foreground">
+    {
+      icon && (
+        <span class="flex size-9 shrink-0 items-center justify-center rounded border border-[var(--sl-color-accent)] bg-[var(--sl-color-accent-low)] text-[var(--sl-color-text-accent)]">
+          <Icon name={icon} size="1.1rem" />
+        </span>
+      )
+    }
+    <span set:html={title} />
+  </p>
+  <div class="text-sm leading-relaxed text-muted-foreground">
+    <slot />
+  </div>
+</article>
+
+<script>
+  const cards = document.querySelectorAll<HTMLElement>('[data-interactive-card]');
+
+  for (const card of cards) {
+    card.addEventListener('pointermove', (event) => {
+      const rect = card.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+      card.style.setProperty('--pointer-x', `${x}%`);
+      card.style.setProperty('--pointer-y', `${y}%`);
+    });
+  }
+</script>
+
+<style>
+  [data-interactive-card] > div[aria-hidden='true'] {
+    background: radial-gradient(
+      320px circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+      color-mix(in oklch, var(--sl-color-text-accent) 13%, transparent) 0%,
+      transparent 70%
+    );
+  }
+</style>

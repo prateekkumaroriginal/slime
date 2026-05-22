@@ -1,0 +1,43 @@
+---
+title: Troubleshooting
+description: Fix common rule matching, field filling, and extension loading issues.
+---
+
+import DocsNavLinks from '../../components/DocsNavLinks.astro';
+
+Start with the page, then the rule, then the field mapping. Most issues come from a URL pattern that does not match or a selector that no longer points at the intended input.
+
+## Rule Does Not Appear
+
+Check that the page URL matches the rule pattern, the rule is enabled, and the rule is not archived.
+
+## Field Does Not Fill
+
+Confirm the selected match method is stable. If ID or Name does not work, use a query selector that targets the actual input, textarea, select, or file field.
+
+## Dynamic Value Looks Wrong
+
+Check template braces and arguments. For list picks, keep values comma-separated. For regex values, make sure the pattern is wrapped in the expected regex template syntax.
+
+## Image Does Not Attach
+
+Confirm the target field is a file input and the stored image still exists in Slime image storage.
+
+## Extension Changes Do Not Show Up
+
+After building from source, reload the extension from `chrome://extensions/`. If a content script was already running on a page, reload that page too.
+
+<DocsNavLinks
+  links={[
+    {
+      title: 'Getting Started',
+      href: '/getting-started/',
+      description: 'Review the setup and first-rule flow.',
+    },
+    {
+      title: 'Rules',
+      href: '/rules/',
+      description: 'Check URL patterns and field mappings.',
+    },
+  ]}
+/>

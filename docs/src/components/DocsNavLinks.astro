@@ -1,0 +1,32 @@
+---
+import SlimeLinkCard from './SlimeLinkCard.astro';
+
+interface NavLinkItem {
+  title: string;
+  href: string;
+  description?: string;
+}
+
+interface Props {
+  links: NavLinkItem[];
+}
+
+const { links } = Astro.props;
+---
+
+{
+  links.length > 0 && (
+    <nav
+      class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+      aria-label="Related documentation"
+    >
+      {links.map((link) => (
+        <SlimeLinkCard
+          title={link.title}
+          href={link.href}
+          description={link.description}
+        />
+      ))}
+    </nav>
+  )
+}

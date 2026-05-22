@@ -1,0 +1,20 @@
+---
+import { CardGrid } from '@astrojs/starlight/components';
+
+interface Props {
+  columns?: 'auto' | 'two';
+}
+
+const { columns = 'auto' } = Astro.props;
+---
+
+<div
+  class:list={[
+    'block [&_.card-grid]:gap-4 min-[50rem]:[&_.card-grid]:gap-5',
+    columns === 'two' && 'sm:[&_.card-grid]:grid-cols-2',
+  ]}
+>
+  <CardGrid>
+    <slot />
+  </CardGrid>
+</div>
