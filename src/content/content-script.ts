@@ -356,6 +356,31 @@ const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-
 // Form Filling Functions (existing)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PAGE_CLICK_EVENT = 'slime:page-click';
+
+function isJavaScriptUrl(value: string | undefined): boolean {
+  return value !== undefined && value.trimStart().toLowerCase().startsWith('javascript:');
+}
+
+function clickElement(element: HTMLElement, selector: string): boolean {
+  const navigationElement = element.closest<HTMLElement>('[href]');
+  const href = navigationElement?.getAttribute('href')?.trim();
+  const formControl = element instanceof HTMLButtonElement || element instanceof HTMLInputElement
+    ? element
+    : null;
+  const formAction = formControl?.getAttribute('formaction')?.trim()
+    ?? formControl?.form?.getAttribute('action')?.trim();
+  if (isJavaScriptUrl(href) || isJavaScriptUrl(formAction)) {
+    document.dispatchEvent(new CustomEvent(PAGE_CLICK_EVENT, {
+      detail: { selector },
+    }));
+  } else {
+    element.click();
+  }
+
+  return true;
+}
+
 // Execute a single PostAction
 async function executePostAction(action: PostAction): Promise<boolean> {
   try {
@@ -364,8 +389,7 @@ async function executePostAction(action: PostAction): Promise<boolean> {
         if (!action.selector) return false;
         const element = document.querySelector(action.selector);
         if (element instanceof HTMLElement) {
-          element.click();
-          return true;
+          return clickElement(element, action.selector);
         }
         return false;
       }
@@ -1424,4 +1448,3 @@ document.addEventListener('keydown', async (e) => {
 
 // Log that content script is loaded (for debugging)
 console.log('[Slime] Content script loaded');
-

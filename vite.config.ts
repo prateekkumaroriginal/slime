@@ -74,10 +74,11 @@ export default defineConfig({
         popup: resolve(__dirname, 'popup.html'),
         options: resolve(__dirname, 'options.html'),
         'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
+        'page-bridge': resolve(__dirname, 'src/content/page-bridge.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'service-worker') {
+          if (chunkInfo.name === 'service-worker' || chunkInfo.name === 'page-bridge') {
             return 'src/[name].js';
           }
           return 'assets/[name]-[hash].js';

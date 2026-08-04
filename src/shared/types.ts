@@ -273,4 +273,3 @@ export interface Collection {
 export interface CollectionsStorageData {
   collections: Collection[];
 }
-
