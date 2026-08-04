@@ -1,20 +1,5 @@
-import type {
-  ExecutePageFunctionEventDetail,
-  ExtensionMessage,
-  FABSettings,
-  FieldMapping,
-  FillRule,
-  MatchType,
-  PageFunctionResultEventDetail,
-  PostAction,
-  RepeatGroup,
-  StoredImage,
-} from '@/shared/types';
+import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage, RepeatGroup, MatchType } from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
-import {
-  EXECUTE_PAGE_FUNCTION_EVENT,
-  PAGE_FUNCTION_RESULT_EVENT,
-} from '@/shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FAB State
@@ -371,47 +356,10 @@ const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-
 // Form Filling Functions (existing)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PAGE_CLICK_EVENT = 'slime:page-click';
+
 function isJavaScriptUrl(value: string | undefined): boolean {
   return value !== undefined && value.trimStart().toLowerCase().startsWith('javascript:');
-}
-
-function parseJavaScriptFunctionPath(value: string): string | null {
-  const script = value.slice(value.indexOf(':') + 1).trim();
-  const functionCall = /^(?:window\.)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(\s*\)\s*;?$/.exec(script);
-  return functionCall?.[1] ?? null;
-}
-
-function executePageFunction(functionPath: string): boolean {
-  const requestId = crypto.randomUUID();
-  const request: ExecutePageFunctionEventDetail = { requestId, functionPath };
-  const results: PageFunctionResultEventDetail[] = [];
-  const handleResult = (event: Event): void => {
-    const eventResult = (event as CustomEvent<PageFunctionResultEventDetail>).detail;
-    if (eventResult.requestId === requestId) {
-      results.push(eventResult);
-    }
-  };
-
-  document.addEventListener(PAGE_FUNCTION_RESULT_EVENT, handleResult);
-  try {
-    document.dispatchEvent(new CustomEvent(EXECUTE_PAGE_FUNCTION_EVENT, {
-      detail: request,
-    }));
-  } finally {
-    document.removeEventListener(PAGE_FUNCTION_RESULT_EVENT, handleResult);
-  }
-
-  const result = results[0];
-  if (!result?.success) {
-    console.error('[Slime][PostAction:click] Failed to execute page function', {
-      functionPath,
-      error: result?.error ?? 'Page bridge did not respond',
-    });
-    return false;
-  }
-
-  console.info('[Slime][PostAction:click] Executed page function', { functionPath });
-  return true;
 }
 
 function clickElement(element: HTMLElement, selector: string): boolean {
@@ -422,55 +370,15 @@ function clickElement(element: HTMLElement, selector: string): boolean {
     : null;
   const formAction = formControl?.getAttribute('formaction')?.trim()
     ?? formControl?.form?.getAttribute('action')?.trim();
-  const preventDefaultNavigation = isJavaScriptUrl(href) || isJavaScriptUrl(formAction);
-
-  console.info('[Slime][PostAction:click]', {
-    selector,
-    element,
-    navigationElement,
-    href: href ?? null,
-    formAction: formAction ?? null,
-    preventDefaultNavigation,
-  });
-
-  if (!preventDefaultNavigation) {
+  if (isJavaScriptUrl(href) || isJavaScriptUrl(formAction)) {
+    document.dispatchEvent(new CustomEvent(PAGE_CLICK_EVENT, {
+      detail: { selector },
+    }));
+  } else {
     element.click();
-    return true;
   }
 
-  // Page CSP blocks javascript: navigation triggered by HTMLElement.click().
-  // Prevent only that default navigation while still allowing the page's
-  // registered click handlers to receive the event.
-  const preventJavaScriptNavigation = (event: MouseEvent): void => {
-    event.preventDefault();
-  };
-
-  element.addEventListener('click', preventJavaScriptNavigation, {
-    capture: true,
-    once: true,
-  });
-
-  try {
-    element.click();
-  } finally {
-    element.removeEventListener('click', preventJavaScriptNavigation, true);
-  }
-
-  if (href !== undefined) {
-    const functionPath = parseJavaScriptFunctionPath(href);
-    if (functionPath !== null) {
-      return executePageFunction(functionPath);
-    }
-
-    if (/^javascript:\s*void\s*(?:\(\s*0\s*\)|\s+0)\s*;?$/i.test(href)) {
-      return true;
-    }
-  }
-
-  console.error('[Slime][PostAction:click] Unsupported JavaScript URL', {
-    href: href ?? formAction,
-  });
-  return false;
+  return true;
 }
 
 // Execute a single PostAction

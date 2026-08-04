@@ -22,7 +22,7 @@ function copyManifest() {
   };
 }
 
-// Plugin to build content scripts as IIFEs (no ES modules)
+// Plugin to build content script as IIFE (no ES modules)
 // Content scripts can't use ES modules in Chrome extensions
 function buildContentScript() {
   return {
@@ -38,30 +38,6 @@ function buildContentScript() {
             name: 'SlimeContentScript',
             formats: ['iife'],
             fileName: () => 'content-script.js',
-          },
-          rollupOptions: {
-            output: {
-              extend: true,
-            },
-          },
-        },
-        resolve: {
-          alias: {
-            '@': resolve(__dirname, 'src'),
-          },
-        },
-      });
-
-      await build({
-        configFile: false,
-        build: {
-          outDir: 'dist/src',
-          emptyOutDir: false,
-          lib: {
-            entry: resolve(__dirname, 'src/content/page-bridge.ts'),
-            name: 'SlimePageBridge',
-            formats: ['iife'],
-            fileName: () => 'page-bridge.js',
           },
           rollupOptions: {
             output: {
@@ -98,10 +74,11 @@ export default defineConfig({
         popup: resolve(__dirname, 'popup.html'),
         options: resolve(__dirname, 'options.html'),
         'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
+        'page-bridge': resolve(__dirname, 'src/content/page-bridge.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'service-worker') {
+          if (chunkInfo.name === 'service-worker' || chunkInfo.name === 'page-bridge') {
             return 'src/[name].js';
           }
           return 'assets/[name]-[hash].js';
