@@ -20,6 +20,20 @@ export interface PostAction {
   delay?: number;       // For wait (milliseconds)
 }
 
+export const EXECUTE_PAGE_FUNCTION_EVENT = 'slime:execute-page-function';
+export const PAGE_FUNCTION_RESULT_EVENT = 'slime:page-function-result';
+
+export interface ExecutePageFunctionEventDetail {
+  requestId: string;
+  functionPath: string;
+}
+
+export interface PageFunctionResultEventDetail {
+  requestId: string;
+  success: boolean;
+  error?: string;
+}
+
 // Field mapping within a rule
 export interface FieldMapping {
   id: string;
@@ -273,4 +287,3 @@ export interface Collection {
 export interface CollectionsStorageData {
   collections: Collection[];
 }
-

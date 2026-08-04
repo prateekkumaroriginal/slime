@@ -22,7 +22,7 @@ function copyManifest() {
   };
 }
 
-// Plugin to build content script as IIFE (no ES modules)
+// Plugin to build content scripts as IIFEs (no ES modules)
 // Content scripts can't use ES modules in Chrome extensions
 function buildContentScript() {
   return {
@@ -38,6 +38,30 @@ function buildContentScript() {
             name: 'SlimeContentScript',
             formats: ['iife'],
             fileName: () => 'content-script.js',
+          },
+          rollupOptions: {
+            output: {
+              extend: true,
+            },
+          },
+        },
+        resolve: {
+          alias: {
+            '@': resolve(__dirname, 'src'),
+          },
+        },
+      });
+
+      await build({
+        configFile: false,
+        build: {
+          outDir: 'dist/src',
+          emptyOutDir: false,
+          lib: {
+            entry: resolve(__dirname, 'src/content/page-bridge.ts'),
+            name: 'SlimePageBridge',
+            formats: ['iife'],
+            fileName: () => 'page-bridge.js',
           },
           rollupOptions: {
             output: {
