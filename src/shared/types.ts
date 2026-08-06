@@ -72,7 +72,7 @@ export interface FillRule {
   incrementCounter: number; // Current increment value for {{inc}}
   isArchived?: boolean; // Whether the rule is archived
   collectionId?: string; // Reference to collection (null/undefined = "Default" collection)
-  postActions?: PostAction[]; // Chain of actions to execute after all fields complete successfully
+  postActions?: PostAction[]; // Actions after fields, increment persistence, and repeat groups succeed
   closeTabOnSuccess?: boolean; // Close the originating tab after the entire rule completes without errors
   createdAt: number;
   updatedAt: number;
@@ -111,12 +111,14 @@ export interface UpdateIncrementMessage {
 
 export interface CloseCurrentTabMessage {
   type: 'CLOSE_CURRENT_TAB';
+  delayMs: number;
 }
 
 export interface FillResult {
   filledCount: number;
   errors: string[];
   shouldCloseTab: boolean;
+  closeDelayMs: number;
 }
 
 export type ExtensionMessage = FillFormMessage | FillCompleteMessage;
