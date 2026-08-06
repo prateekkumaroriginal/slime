@@ -89,6 +89,10 @@ type ServiceWorkerMessage =
   | OpenOptionsRequest
   | GetImageRequest;
 
+const CLOSE_TAB_ALARM_PREFIX = 'slime-close-tab:';
+const MAX_CLOSE_DELAY_MS = 2_147_483_647;
+const scheduledTabCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, sender, sendResponse) => {
   switch (message.type) {
@@ -107,10 +111,15 @@ chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, sender, sen
         return false;
       }
 
+      const delayMs = normalizeCloseDelay(message.delayMs);
+      if (delayMs > 0) {
+        scheduleTabClose(tabId, delayMs);
+        sendResponse({ success: true });
+        return false;
+      }
+
       sendResponse({ success: true });
-      void chrome.tabs.remove(tabId).catch((error: unknown) => {
-        console.error(`[Slime] Failed to close sender tab ${tabId}:`, error);
-      });
+      void closeTab(tabId);
       return false;
     }
 
@@ -158,6 +167,107 @@ chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, sender, sen
       return false;
   }
 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (!alarm.name.startsWith(CLOSE_TAB_ALARM_PREFIX)) return;
+
+  const tabId = getTabIdFromCloseAlarm(alarm.name);
+  if (tabId === null) return;
+
+  const timer = scheduledTabCloseTimers.get(alarm.name);
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    scheduledTabCloseTimers.delete(alarm.name);
+  }
+
+  void closeTab(tabId);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void clearScheduledTabCloses(tabId);
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void clearAllScheduledTabCloses();
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  void clearAllScheduledTabCloses();
+});
+
+function normalizeCloseDelay(delayMs: number): number {
+  if (!Number.isFinite(delayMs)) return 0;
+  return Math.min(MAX_CLOSE_DELAY_MS, Math.max(0, Math.floor(delayMs)));
+}
+
+function getCloseAlarmPrefixForTab(tabId: number): string {
+  return `${CLOSE_TAB_ALARM_PREFIX}${tabId}:`;
+}
+
+function getTabIdFromCloseAlarm(alarmName: string): number | null {
+  const encodedTabId = alarmName.slice(CLOSE_TAB_ALARM_PREFIX.length).split(':', 1)[0];
+  const tabId = Number(encodedTabId);
+  return Number.isSafeInteger(tabId) && tabId >= 0 ? tabId : null;
+}
+
+function scheduleTabClose(tabId: number, delayMs: number): void {
+  const alarmName = `${getCloseAlarmPrefixForTab(tabId)}${crypto.randomUUID()}`;
+  const closeAt = Date.now() + delayMs;
+
+  const timer = setTimeout(() => {
+    scheduledTabCloseTimers.delete(alarmName);
+    void chrome.alarms.clear(alarmName);
+    void closeTab(tabId);
+  }, delayMs);
+  scheduledTabCloseTimers.set(alarmName, timer);
+
+  // The timer provides precise short delays. The alarm survives service-worker
+  // suspension and acts as a durable fallback, although Chrome may delay it.
+  void chrome.alarms.create(alarmName, {
+    when: closeAt,
+  }).catch((error: unknown) => {
+    console.error(`[Slime] Failed to create close alarm for tab ${tabId}:`, error);
+  });
+}
+
+async function clearAllScheduledTabCloses(): Promise<void> {
+  for (const timer of scheduledTabCloseTimers.values()) {
+    clearTimeout(timer);
+  }
+  scheduledTabCloseTimers.clear();
+
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(
+    alarms
+      .filter((alarm) => alarm.name.startsWith(CLOSE_TAB_ALARM_PREFIX))
+      .map((alarm) => chrome.alarms.clear(alarm.name))
+  );
+}
+
+async function clearScheduledTabCloses(tabId: number): Promise<void> {
+  const alarmPrefix = getCloseAlarmPrefixForTab(tabId);
+
+  for (const [alarmName, timer] of scheduledTabCloseTimers) {
+    if (!alarmName.startsWith(alarmPrefix)) continue;
+    clearTimeout(timer);
+    scheduledTabCloseTimers.delete(alarmName);
+  }
+
+  const alarms = await chrome.alarms.getAll();
+  await Promise.all(
+    alarms
+      .filter((alarm) => alarm.name.startsWith(alarmPrefix))
+      .map((alarm) => chrome.alarms.clear(alarm.name))
+  );
+}
+
+async function closeTab(tabId: number): Promise<void> {
+  try {
+    await chrome.tabs.remove(tabId);
+  } catch (error) {
+    console.error(`[Slime] Failed to close sender tab ${tabId}:`, error);
+  }
+}
 
 // Handle fill form request from popup
 async function handleFillForm(ruleId: string, sendResponse: (response: unknown) => void) {

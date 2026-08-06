@@ -191,9 +191,9 @@ Post-actions support drag-and-drop reordering.
 
 ### Close Tab on Success
 
-Enable **Close tab after successful completion** in a rule's PostActions card to close the tab where that rule ran. Slime waits for fields, repeat groups, post-actions, and increment counter persistence to finish, and closes the tab only if no errors occurred. Failed runs stay open for inspection.
+Enable **Close tab after successful completion** in a rule's PostActions card to close the tab where that rule ran. Slime fills normal fields and runs their actions, saves generated increments, fills repeat groups, runs rule-level post-actions, and then closes the tab only if no errors occurred. Failed runs stay open for inspection.
 
-Closing is terminal. Add a rule-level **Wait** as the final post-action if the page needs time after a click or submission. Do not use Press Key with Ctrl+W: synthetic key events cannot invoke Chrome's trusted close-tab shortcut, so Slime uses the Chrome Tabs API for this setting.
+Closing is terminal. Add a rule-level **Wait** as the final post-action if the page needs time after a click or submission. When closing is enabled, Slime hands trailing waits to the service worker so they continue even if submission navigates to a new page. Do not use Press Key with Ctrl+W: synthetic key events cannot invoke Chrome's trusted close-tab shortcut, so Slime uses the Chrome Tabs API for this setting.
 
 ## Floating Action Button (FAB)
 

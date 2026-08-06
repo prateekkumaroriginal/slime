@@ -607,15 +607,14 @@ interface OperationResponse {
   error?: string;
 }
 
-function scheduleCurrentTabClose(): void {
-  setTimeout(() => {
-    void requestCurrentTabClose();
-  }, 0);
-}
+const MAX_CLOSE_DELAY_MS = 2_147_483_647;
 
-async function requestCurrentTabClose(): Promise<void> {
+async function requestCurrentTabClose(delayMs: number): Promise<void> {
   try {
-    const message: CloseCurrentTabMessage = { type: 'CLOSE_CURRENT_TAB' };
+    const message: CloseCurrentTabMessage = {
+      type: 'CLOSE_CURRENT_TAB',
+      delayMs,
+    };
     const response = await chrome.runtime.sendMessage(message) as OperationResponse | undefined;
     if (!response?.success) {
       console.error('[Slime] Failed to close current tab:', response?.error ?? 'Unknown error');
@@ -637,13 +636,16 @@ async function runRule(
       filledCount: 0,
       errors: [`Unexpected fill error: ${String(error)}`],
       shouldCloseTab: false,
+      closeDelayMs: 0,
     };
   }
 
   handleComplete?.(result);
 
   if (result.shouldCloseTab) {
-    scheduleCurrentTabClose();
+    // Start the request immediately so a navigation caused by the final action
+    // cannot destroy this document before the service worker owns the close.
+    void requestCurrentTabClose(result.closeDelayMs);
   }
 
   return result;
@@ -709,27 +711,8 @@ async function fillForm(rule: FillRule): Promise<FillResult> {
     }
   }
 
-  // Fill repeat groups if any
-  if (rule.repeatGroups && rule.repeatGroups.length > 0) {
-    for (const group of rule.repeatGroups) {
-      const groupResult = await fillRepeatGroup(group);
-      filledCount += groupResult.filledCount;
-      errors.push(...groupResult.errors);
-    }
-  }
-
-  // Execute rule-level postActions only after fields and repeat groups succeed.
-  if (errors.length === 0 && rule.postActions && rule.postActions.length > 0) {
-    for (const action of rule.postActions) {
-      const actionSuccess = await executePostAction(action);
-      if (!actionSuccess) {
-        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
-        break;
-      }
-    }
-  }
-
-  // Persist template increments before reporting completion or closing the tab.
+  // Persist generated increments before repeat groups or navigation-producing
+  // rule actions. A persistence failure prevents final post-actions and closing.
   if (currentIncrement !== rule.incrementCounter) {
     try {
       const message: UpdateIncrementMessage = {
@@ -746,10 +729,68 @@ async function fillForm(rule: FillRule): Promise<FillResult> {
     }
   }
 
+  // Fill repeat groups if any
+  if (rule.repeatGroups && rule.repeatGroups.length > 0) {
+    for (const group of rule.repeatGroups) {
+      const groupResult = await fillRepeatGroup(group);
+      filledCount += groupResult.filledCount;
+      errors.push(...groupResult.errors);
+    }
+  }
+
+  const { actions: rulePostActions, closeDelayMs } = splitTrailingCloseWaits(
+    rule.postActions ?? [],
+    rule.closeTabOnSuccess === true
+  );
+
+  // Execute rule-level postActions only after fields, increment persistence,
+  // and repeat groups succeed.
+  if (errors.length === 0) {
+    for (const action of rulePostActions) {
+      const actionSuccess = await executePostAction(action);
+      if (!actionSuccess) {
+        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
+        break;
+      }
+    }
+  }
+
   return {
     filledCount,
     errors,
     shouldCloseTab: rule.closeTabOnSuccess === true && errors.length === 0,
+    closeDelayMs,
+  };
+}
+
+function splitTrailingCloseWaits(
+  actions: PostAction[],
+  shouldCloseTab: boolean
+): { actions: PostAction[]; closeDelayMs: number } {
+  if (!shouldCloseTab) {
+    return { actions, closeDelayMs: 0 };
+  }
+
+  let firstTrailingWaitIndex = actions.length;
+  let closeDelayMs = 0;
+
+  while (
+    firstTrailingWaitIndex > 0 &&
+    actions[firstTrailingWaitIndex - 1].type === 'wait'
+  ) {
+    firstTrailingWaitIndex--;
+    const delay = actions[firstTrailingWaitIndex].delay ?? 0;
+    if (Number.isFinite(delay)) {
+      closeDelayMs = Math.min(
+        MAX_CLOSE_DELAY_MS,
+        closeDelayMs + Math.max(0, delay)
+      );
+    }
+  }
+
+  return {
+    actions: actions.slice(0, firstTrailingWaitIndex),
+    closeDelayMs,
   };
 }
 
