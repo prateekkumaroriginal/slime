@@ -11,6 +11,7 @@ A Chrome extension that fills form/input fields with custom rules and dynamic va
 - **Image fill support** — Store images and auto-fill file inputs with them
 - **Post-actions** — Chain actions (click, focus, key press, wait) after filling fields or completing rules
 - **Field-level post-actions** — Add post-actions to individual fields (e.g., press Tab after filling email)
+- **Close tab on success** — Optionally close the originating tab after the full rule finishes without errors
 - **Floating Action Button (FAB)** — Quick-access button on pages with configurable position and keyboard shortcut
 - **Default rules** — Set a default rule per URL pattern for one-click filling via FAB
 - **Multiple rules** — Create different fill profiles (e.g., Admin, User, Tester) and switch between them
@@ -175,7 +176,7 @@ Chain actions to execute after a field fills or after all fields in a rule compl
 
 Post-actions can be added at two levels:
 - **Field-level** — Execute after a specific field is filled (e.g., press Tab to move to next field)
-- **Rule-level** — Execute after all fields complete (e.g., click Submit button)
+- **Rule-level** — Execute after all fields and repeat groups complete (e.g., click Submit button)
 
 | Action | Description | Parameters |
 |--------|-------------|------------|
@@ -187,6 +188,12 @@ Post-actions can be added at two levels:
 **Example:** After filling a search field, press Enter to submit, then wait 500ms for results.
 
 Post-actions support drag-and-drop reordering.
+
+### Close Tab on Success
+
+Enable **Close tab after successful completion** in a rule's PostActions card to close the tab where that rule ran. Slime waits for fields, repeat groups, post-actions, and increment counter persistence to finish, and closes the tab only if no errors occurred. Failed runs stay open for inspection.
+
+Closing is terminal. Add a rule-level **Wait** as the final post-action if the page needs time after a click or submission. Do not use Press Key with Ctrl+W: synthetic key events cannot invoke Chrome's trusted close-tab shortcut, so Slime uses the Chrome Tabs API for this setting.
 
 ## Floating Action Button (FAB)
 

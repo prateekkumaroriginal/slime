@@ -131,13 +131,13 @@ function parseMinMax(params?: string): { min?: number; max?: number } {
 
 // Generate a title (short sentence) with optional length constraints
 function generateTitle(minLen?: number, maxLen?: number): string {
-  let text = faker.company.catchPhrase();
+  const text = faker.company.catchPhrase();
   return constrainLength(text, minLen, maxLen, () => faker.company.catchPhrase());
 }
 
 // Generate a description (paragraph) with optional length constraints
 function generateDescription(minLen?: number, maxLen?: number): string {
-  let text = faker.lorem.paragraph();
+  const text = faker.lorem.paragraph();
   return constrainLength(text, minLen, maxLen, () => faker.lorem.paragraph());
 }
 

@@ -206,7 +206,11 @@ function SortableRuleCard({
             size="icon-sm"
             onClick={(e) => {
               e.stopPropagation();
-              isDefaultForPattern ? onRemoveDefault(rule.urlPattern) : onSetDefault(rule);
+              if (isDefaultForPattern) {
+                onRemoveDefault(rule.urlPattern);
+              } else {
+                onSetDefault(rule);
+              }
             }}
             title={isDefaultForPattern ? 'Remove as default for this URL pattern' : 'Set as default for this URL pattern'}
             className={isDefaultForPattern

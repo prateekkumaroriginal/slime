@@ -1,4 +1,16 @@
-import type { FillRule, FieldMapping, ExtensionMessage, FABSettings, PostAction, StoredImage, RepeatGroup, MatchType } from '@/shared/types';
+import type {
+  CloseCurrentTabMessage,
+  ExtensionMessage,
+  FABSettings,
+  FieldMapping,
+  FillResult,
+  FillRule,
+  MatchType,
+  PostAction,
+  RepeatGroup,
+  StoredImage,
+  UpdateIncrementMessage,
+} from '@/shared/types';
 import { generateValue } from '@/lib/value-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -590,19 +602,64 @@ async function getImageFromBackground(imageId: string): Promise<StoredImage | nu
   }
 }
 
+interface OperationResponse {
+  success: boolean;
+  error?: string;
+}
+
+function scheduleCurrentTabClose(): void {
+  setTimeout(() => {
+    void requestCurrentTabClose();
+  }, 0);
+}
+
+async function requestCurrentTabClose(): Promise<void> {
+  try {
+    const message: CloseCurrentTabMessage = { type: 'CLOSE_CURRENT_TAB' };
+    const response = await chrome.runtime.sendMessage(message) as OperationResponse | undefined;
+    if (!response?.success) {
+      console.error('[Slime] Failed to close current tab:', response?.error ?? 'Unknown error');
+    }
+  } catch (error) {
+    console.error('[Slime] Failed to request current tab close:', error);
+  }
+}
+
+async function runRule(
+  rule: FillRule,
+  handleComplete?: (result: FillResult) => void
+): Promise<FillResult> {
+  let result: FillResult;
+  try {
+    result = await fillForm(rule);
+  } catch (error) {
+    result = {
+      filledCount: 0,
+      errors: [`Unexpected fill error: ${String(error)}`],
+      shouldCloseTab: false,
+    };
+  }
+
+  handleComplete?.(result);
+
+  if (result.shouldCloseTab) {
+    scheduleCurrentTabClose();
+  }
+
+  return result;
+}
+
 // Fill form fields based on a rule
-async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: string[] }> {
+async function fillForm(rule: FillRule): Promise<FillResult> {
   let filledCount = 0;
   const errors: string[] = [];
   let currentIncrement = rule.incrementCounter;
-  let allFieldsSuccessful = true;
 
   for (const field of rule.fields) {
     const element = findElement(field);
 
     if (!element) {
       errors.push(`Element not found: ${field.matchType}="${field.selector}"`);
-      allFieldsSuccessful = false;
       continue;
     }
 
@@ -617,15 +674,12 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
           fillSuccess = await setFileInputValue(element, imageData);
           if (!fillSuccess) {
             errors.push(`Failed to set file input for: ${field.matchType}="${field.selector}"`);
-            allFieldsSuccessful = false;
           }
         } else {
           errors.push(`Image not found for: ${field.matchType}="${field.selector}"`);
-          allFieldsSuccessful = false;
         }
       } else {
         errors.push(`Element is not a file input: ${field.matchType}="${field.selector}"`);
-        allFieldsSuccessful = false;
       }
     } else {
       // Handle other value types (static, template, title, desc)
@@ -636,7 +690,6 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
       fillSuccess = setElementValue(element, value);
       if (!fillSuccess) {
         errors.push(`Failed to set value for: ${field.matchType}="${field.selector}"`);
-        allFieldsSuccessful = false;
       }
     }
 
@@ -656,27 +709,6 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
     }
   }
 
-  // Execute rule-level postActions chain if all fields were successful
-  // Stop the chain if any action fails
-  if (allFieldsSuccessful && rule.postActions && rule.postActions.length > 0) {
-    for (const action of rule.postActions) {
-      const actionSuccess = await executePostAction(action);
-      if (!actionSuccess) {
-        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
-        break;
-      }
-    }
-  }
-
-  // Update increment counter if it changed
-  if (currentIncrement !== rule.incrementCounter) {
-    chrome.runtime.sendMessage({
-      type: 'UPDATE_INCREMENT',
-      ruleId: rule.id,
-      newValue: currentIncrement,
-    });
-  }
-
   // Fill repeat groups if any
   if (rule.repeatGroups && rule.repeatGroups.length > 0) {
     for (const group of rule.repeatGroups) {
@@ -686,7 +718,39 @@ async function fillForm(rule: FillRule): Promise<{ filledCount: number; errors: 
     }
   }
 
-  return { filledCount, errors };
+  // Execute rule-level postActions only after fields and repeat groups succeed.
+  if (errors.length === 0 && rule.postActions && rule.postActions.length > 0) {
+    for (const action of rule.postActions) {
+      const actionSuccess = await executePostAction(action);
+      if (!actionSuccess) {
+        errors.push(`Rule PostAction chain stopped: ${action.type} failed`);
+        break;
+      }
+    }
+  }
+
+  // Persist template increments before reporting completion or closing the tab.
+  if (currentIncrement !== rule.incrementCounter) {
+    try {
+      const message: UpdateIncrementMessage = {
+        type: 'UPDATE_INCREMENT',
+        ruleId: rule.id,
+        newValue: currentIncrement,
+      };
+      const response = await chrome.runtime.sendMessage(message) as OperationResponse | undefined;
+      if (!response?.success) {
+        errors.push(`Failed to update increment counter: ${response?.error ?? 'Unknown error'}`);
+      }
+    } catch (error) {
+      errors.push(`Failed to update increment counter: ${String(error)}`);
+    }
+  }
+
+  return {
+    filledCount,
+    errors,
+    shouldCloseTab: rule.closeTabOnSuccess === true && errors.length === 0,
+  };
 }
 
 // Find element within a container based on match type
@@ -745,7 +809,15 @@ async function fillRepeatGroup(
   group: RepeatGroup
 ): Promise<{ filledCount: number; errors: string[] }> {
   // Find all row containers on the page
-  const rowElements = document.querySelectorAll(group.rowSelector);
+  let rowElements: NodeListOf<Element>;
+  try {
+    rowElements = document.querySelectorAll(group.rowSelector);
+  } catch {
+    return {
+      filledCount: 0,
+      errors: [`[${group.name}] Invalid row selector: ${group.rowSelector}`],
+    };
+  }
 
   let filledCount = 0;
   const errors: string[] = [];
@@ -804,7 +876,7 @@ async function fillRepeatGroup(
 // Listen for messages from popup/background
 chrome.runtime.onMessage.addListener((message: ExtensionMessage & { rule?: FillRule; settings?: FABSettings }, _sender, sendResponse) => {
   if (message.type === 'FILL_FORM' && message.rule) {
-    fillForm(message.rule).then((result) => {
+    void runRule(message.rule, (result) => {
       sendResponse({
         type: 'FILL_COMPLETE',
         success: result.errors.length === 0,
@@ -989,9 +1061,13 @@ async function handleFABClick(): Promise<void> {
 
     if (response?.rule) {
       // Fill with default rule
-      const result = await fillForm(response.rule);
+      const result = await runRule(response.rule, (completedResult) => {
+        if (completedResult.errors.length > 0) {
+          console.warn('[Slime] Fill errors:', completedResult.errors);
+        }
+      });
       if (result.errors.length > 0) {
-        console.warn('[Slime] Fill errors:', result.errors);
+        return;
       }
     } else {
       // No default rule - show popup
@@ -1160,14 +1236,15 @@ function setupPopupEvents(rules: FillRule[], activeDefaultId: string | null): vo
       btn.innerHTML = '<div class="slime-spinner"></div>';
 
       try {
-        const result = await fillForm(rule);
-        if (result.errors.length === 0) {
-          hideMiniPopup();
-        } else {
-          console.warn('[Slime] Fill errors:', result.errors);
-          btn.innerHTML = originalContent;
-          btn.classList.remove('loading');
-        }
+        await runRule(rule, (result) => {
+          if (result.errors.length === 0) {
+            hideMiniPopup();
+          } else {
+            console.warn('[Slime] Fill errors:', result.errors);
+            btn.innerHTML = originalContent;
+            btn.classList.remove('loading');
+          }
+        });
       } catch {
         btn.innerHTML = originalContent;
         btn.classList.remove('loading');
@@ -1432,10 +1509,11 @@ document.addEventListener('keydown', async (e) => {
     });
 
     if (response?.rule) {
-      const result = await fillForm(response.rule);
-      if (result.errors.length > 0) {
-        console.warn('[Slime] Fill errors:', result.errors);
-      }
+      await runRule(response.rule, (result) => {
+        if (result.errors.length > 0) {
+          console.warn('[Slime] Fill errors:', result.errors);
+        }
+      });
     } else {
       // No default rule - show popup (same as FAB click)
       await showMiniPopup();

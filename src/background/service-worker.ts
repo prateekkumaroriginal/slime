@@ -13,18 +13,18 @@ import {
   getRules,
   getImage
 } from '@/storage/rules';
-import type { FABSettings, DefaultRuleMapping, FillRule } from '@/shared/types';
+import type {
+  CloseCurrentTabMessage,
+  DefaultRuleMapping,
+  FABSettings,
+  FillRule,
+  UpdateIncrementMessage,
+} from '@/shared/types';
 
 // Message types
 interface FillFormRequest {
   type: 'FILL_FORM';
   ruleId: string;
-}
-
-interface UpdateIncrementRequest {
-  type: 'UPDATE_INCREMENT';
-  ruleId: string;
-  newValue: number;
 }
 
 interface GetFABSettingsRequest {
@@ -76,7 +76,8 @@ interface GetImageRequest {
 
 type ServiceWorkerMessage = 
   | FillFormRequest 
-  | UpdateIncrementRequest
+  | UpdateIncrementMessage
+  | CloseCurrentTabMessage
   | GetFABSettingsRequest
   | SaveFABSettingsRequest
   | ResetFABPositionRequest
@@ -89,15 +90,29 @@ type ServiceWorkerMessage =
   | GetImageRequest;
 
 // Handle messages from popup and content scripts
-chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ServiceWorkerMessage, sender, sendResponse) => {
   switch (message.type) {
     case 'FILL_FORM':
       handleFillForm(message.ruleId, sendResponse);
       return true;
 
     case 'UPDATE_INCREMENT':
-      handleUpdateIncrement(message.ruleId, message.newValue);
+      handleUpdateIncrement(message.ruleId, message.newValue, sendResponse);
+      return true;
+
+    case 'CLOSE_CURRENT_TAB': {
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        sendResponse({ success: false, error: 'No sender tab' });
+        return false;
+      }
+
+      sendResponse({ success: true });
+      void chrome.tabs.remove(tabId).catch((error: unknown) => {
+        console.error(`[Slime] Failed to close sender tab ${tabId}:`, error);
+      });
       return false;
+    }
 
     case 'GET_FAB_SETTINGS':
       handleGetFABSettings(sendResponse);
@@ -175,11 +190,17 @@ async function handleFillForm(ruleId: string, sendResponse: (response: unknown) 
 }
 
 // Handle increment update from content script
-async function handleUpdateIncrement(ruleId: string, newValue: number) {
+async function handleUpdateIncrement(
+  ruleId: string,
+  newValue: number,
+  sendResponse: (response: unknown) => void
+) {
   try {
     await updateIncrement(ruleId, newValue);
+    sendResponse({ success: true });
   } catch (error) {
     console.error('[Slime] Failed to update increment:', error);
+    sendResponse({ success: false, error: String(error) });
   }
 }
 

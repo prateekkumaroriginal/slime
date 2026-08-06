@@ -73,6 +73,7 @@ export interface FillRule {
   isArchived?: boolean; // Whether the rule is archived
   collectionId?: string; // Reference to collection (null/undefined = "Default" collection)
   postActions?: PostAction[]; // Chain of actions to execute after all fields complete successfully
+  closeTabOnSuccess?: boolean; // Close the originating tab after the entire rule completes without errors
   createdAt: number;
   updatedAt: number;
 }
@@ -83,7 +84,12 @@ export interface StorageData {
 }
 
 // Message types for communication between popup/background/content
-export type MessageType = 'FILL_FORM' | 'GET_RULES' | 'FILL_COMPLETE';
+export type MessageType =
+  | 'FILL_FORM'
+  | 'GET_RULES'
+  | 'FILL_COMPLETE'
+  | 'UPDATE_INCREMENT'
+  | 'CLOSE_CURRENT_TAB';
 
 export interface FillFormMessage {
   type: 'FILL_FORM';
@@ -95,6 +101,22 @@ export interface FillCompleteMessage {
   success: boolean;
   filledCount: number;
   errors?: string[];
+}
+
+export interface UpdateIncrementMessage {
+  type: 'UPDATE_INCREMENT';
+  ruleId: string;
+  newValue: number;
+}
+
+export interface CloseCurrentTabMessage {
+  type: 'CLOSE_CURRENT_TAB';
+}
+
+export interface FillResult {
+  filledCount: number;
+  errors: string[];
+  shouldCloseTab: boolean;
 }
 
 export type ExtensionMessage = FillFormMessage | FillCompleteMessage;

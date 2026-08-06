@@ -43,6 +43,7 @@ export default function Switch({ checked, onChange, label, title, className }: S
   if (onChange) {
     return (
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         onClick={onChange}
@@ -60,4 +61,3 @@ export default function Switch({ checked, onChange, label, title, className }: S
     </span>
   );
 }
-

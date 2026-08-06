@@ -57,6 +57,7 @@ const FillRuleSchema = z.object({
   incrementCounter: z.number({ message: 'incrementCounter must be a number' }).optional(),
   collectionId: z.string({ message: 'collectionId must be a string' }).optional(),
   postActions: z.array(PostActionSchema, { message: 'postActions must be an array' }).optional(),
+  closeTabOnSuccess: z.boolean({ message: 'closeTabOnSuccess must be a boolean' }).optional(),
 });
 
 const ImportSchema = z.object({
@@ -856,10 +857,13 @@ export async function exportCollectionToJson(collectionId: string): Promise<stri
     },
     rules: rules.map(r => {
       // Remove id, collectionId, createdAt, updatedAt for export
-      const { id, collectionId: _, createdAt, updatedAt, ...exportRule } = r;
+      const exportRule: Partial<FillRule> = { ...r };
+      delete exportRule.id;
+      delete exportRule.collectionId;
+      delete exportRule.createdAt;
+      delete exportRule.updatedAt;
       return exportRule;
     }),
     exportedAt: Date.now(),
   }, null, 2);
 }
-

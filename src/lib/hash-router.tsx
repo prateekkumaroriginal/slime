@@ -10,6 +10,7 @@ interface RouteContextValue {
 
 const RouteContext = createContext<RouteContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoute() {
   const context = useContext(RouteContext);
   if (!context) {
@@ -72,6 +73,7 @@ export function Route({ path, element }: RouteProps) {
   return matches ? <>{element}</> : null;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNavigate() {
   const { navigate } = useRoute();
 

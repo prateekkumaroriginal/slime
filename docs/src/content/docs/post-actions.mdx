@@ -1,6 +1,6 @@
 ---
 title: Post-Actions
-description: Run clicks, focus changes, key presses, and waits after filling fields.
+description: Run clicks, focus changes, key presses, and waits after filling fields, then optionally close the tab.
 ---
 
 Post-actions let a rule keep moving after values are filled. Use them for forms that need a tab press, a submit click, or a short delay before the next step.
@@ -20,4 +20,12 @@ Attach actions to a field when the next step depends on that specific input. For
 
 ## Rule-Level Actions
 
-Attach actions to a rule when they should run after all fields complete. For example, fill a signup form and click the submit button.
+Attach actions to a rule when they should run after all fields and repeat groups complete. For example, fill a signup form and click the submit button.
+
+## Close the Tab on Success
+
+Enable **Close tab after successful completion** in the rule-level PostActions card to close the tab where the rule ran. Slime closes it only after all fields, repeat groups, and post-actions finish without errors and any increment counter update has been saved. If any step fails, the tab stays open so you can inspect the page and error.
+
+Closing is always the final step. To let a submitted page finish updating first, add a rule-level **Wait** action at the end of the action list; the wait completes before Slime closes the tab.
+
+Do not configure **Press Key** with Ctrl+W for this purpose. Press Key sends a synthetic page event, which cannot activate Chrome's trusted browser shortcut. The close-on-success switch uses Chrome's tab API instead.

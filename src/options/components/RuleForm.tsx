@@ -59,6 +59,7 @@ import {
   Select,
   Checkbox,
   Card,
+  Switch,
 } from '@/components';
 
 interface RuleFormProps {
@@ -539,7 +540,7 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
         </div>
 
         {(!formData.postActions || formData.postActions.length === 0) ? (
-          <p className="text-center py-8 text-zinc-500">No post-actions yet. These run after all fields fill successfully.</p>
+          <p className="text-center py-8 text-zinc-500">No post-actions yet. These run after all fields and repeat groups fill successfully.</p>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={formData.postActions.map((a) => a.id)} strategy={verticalListSortingStrategy}>
@@ -556,6 +557,17 @@ export default function RuleForm({ rule, onSave, onCancel, isNew, isHelpOpen, is
             </SortableContext>
           </DndContext>
         )}
+
+        <div className="border-t border-zinc-800 pt-4">
+          <Switch
+            checked={formData.closeTabOnSuccess ?? false}
+            onChange={() => updateField('closeTabOnSuccess', !(formData.closeTabOnSuccess ?? false))}
+            label="Close tab after successful completion."
+          />
+          <p className="mt-2 text-xs text-red-400">
+            The tab stays open if any field, repeat group, action, or counter update fails.
+          </p>
+        </div>
       </Card>
     </form>
   );
