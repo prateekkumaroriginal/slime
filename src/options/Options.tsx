@@ -363,7 +363,7 @@ function OptionsContent() {
     }
   }
 
-  const ListView = () => (
+  const listView = (
     <>
       <div className="flex flex-wrap gap-2 items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-zinc-200">{getCollectionName()}</h2>
@@ -427,7 +427,7 @@ function OptionsContent() {
     </>
   );
 
-  const CreateView = () =>
+  const createView =
     editingRule ? (
       <RuleForm
         rule={editingRule}
@@ -442,7 +442,7 @@ function OptionsContent() {
       />
     ) : null;
 
-  const EditView = () =>
+  const editView =
     loadingRule ? (
       <div className="flex items-center justify-center py-16">
         <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -506,12 +506,12 @@ function OptionsContent() {
           path="action-button"
           element={<FabConfig onBack={() => navigate('')} />}
         />
-        <Route path="create" element={<CreateView />} />
-        <Route path="collection/:collectionId/create" element={<CreateView />} />
-        <Route path="edit/:ruleId" element={<EditView />} />
-        <Route path="collection/:collectionId/edit/:ruleId" element={<EditView />} />
-        <Route path="" element={<ListView />} />
-        <Route path="collection/:collectionId" element={<ListView />} />
+        <Route path="create" element={createView} />
+        <Route path="collection/:collectionId/create" element={createView} />
+        <Route path="edit/:ruleId" element={editView} />
+        <Route path="collection/:collectionId/edit/:ruleId" element={editView} />
+        <Route path="" element={listView} />
+        <Route path="collection/:collectionId" element={listView} />
       </div>
 
       <SyntaxHelp isOpen={showSyntaxHelp && !isArchivedSidebarOpen} onToggle={handleToggleSyntaxHelp} canOpen={!isArchivedSidebarOpen} />
